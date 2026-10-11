@@ -83,7 +83,7 @@
       "installerHeaderIcon": "assets/NASai.ico",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "deleteAppDataOnUninstall": false
     },

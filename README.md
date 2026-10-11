@@ -56,10 +56,10 @@ Changes should reach `main` only after the required gates pass and the diff is r
 
 ## Verification status
 
-| Capability                                      | Status                  | Evidence                            |
-| ----------------------------------------------- | ----------------------- | ----------------------------------- |
-| Lint, typecheck, unit tests, web/Electron build | Automated               | `npm run verify` and CI             |
-| Windows NSIS artifact generation                | Automated on Windows CI | tag release workflow                |
-| Installer launches on the user's machine        | NOT VERIFIED            | manual installation required        |
-| Upgrade from an older installed release         | NOT VERIFIED            | two-version upgrade test required   |
-| User data survives upgrade                      | NOT VERIFIED            | migration/persistence test required |
+| Capability                                      | Status                  | Evidence                                                                                     |
+| ----------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------- |
+| Lint, typecheck, unit tests, web/Electron build | Automated               | `npm run verify` and CI                                                                      |
+| Windows NSIS artifact generation                | Automated on Windows CI | tag release workflow                                                                         |
+| Installer launches on the user's machine        | PASS                    | silent install exit 0; installed `NASai` window opened and remained responsive on 2026-10-11 |
+| Upgrade from an older installed release         | NOT VERIFIED            | two-version upgrade test required                                                            |
+| User data survives upgrade                      | NOT VERIFIED            | migration/persistence test required                                                          |

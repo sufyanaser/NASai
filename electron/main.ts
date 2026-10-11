@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, shell } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { registerUpdater } from "./updater.js";
@@ -14,6 +14,7 @@ function createWindow(): BrowserWindow {
     backgroundColor: "#080b10",
     icon: join(currentDirectory, "../assets/NASai.ico"),
     titleBarStyle: "hiddenInset",
+    autoHideMenuBar: true,
     show: false,
     webPreferences: {
       preload: join(currentDirectory, "preload.js"),
@@ -38,6 +39,7 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
   ipcMain.handle("app:get-info", () => ({
     version: app.getVersion(),
     platform: process.platform,

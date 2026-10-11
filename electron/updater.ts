@@ -1,5 +1,7 @@
 import { app, BrowserWindow, ipcMain } from "electron";
-import { autoUpdater } from "electron-updater";
+import updater from "electron-updater";
+
+const { autoUpdater } = updater;
 
 export type UpdateStatus = {
   state:

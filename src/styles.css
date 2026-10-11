@@ -1,9 +1,30 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700&display=swap");
 
 :root {
-  font-family: "DM Sans", sans-serif;
-  color: #f5f7fb;
-  background: #080b10;
+  color-scheme: dark;
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+  --color-canvas: #080b10;
+  --color-surface: #0d1218;
+  --color-surface-raised: #121820;
+  --color-surface-soft: #172019;
+  --color-border: #242d36;
+  --color-border-strong: #34404b;
+  --color-text: #f5f7fb;
+  --color-text-muted: #8f99a6;
+  --color-text-subtle: #626d79;
+  --color-accent: #62e5b6;
+  --color-accent-strong: #39cca0;
+  --color-accent-soft: #153129;
+  --color-danger: #ff7885;
+  --color-danger-soft: #35191f;
+  --focus-ring: 0 0 0 3px #62e5b638;
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-card: 0 22px 60px #0000002e;
+  color: var(--color-text);
+  background: var(--color-canvas);
   font-synthesis: none;
 }
 * {
@@ -16,6 +37,25 @@ body {
   background:
     radial-gradient(circle at 62% 8%, #12211f 0, transparent 28%), #080b10;
 }
+::selection {
+  color: #07110e;
+  background: var(--color-accent);
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #090d12;
+}
+::-webkit-scrollbar-thumb {
+  border: 3px solid #090d12;
+  border-radius: 999px;
+  background: #34423f;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4a625b;
+}
 button,
 textarea {
   font: inherit;
@@ -23,17 +63,96 @@ textarea {
 button {
   color: inherit;
 }
+.application-frame {
+  min-height: 100vh;
+  background: var(--color-canvas);
+}
+.window-bar {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  height: 42px;
+  border-bottom: 1px solid #202830;
+  background: linear-gradient(90deg, #0a0e13, #0d1516 58%, #0a0e13);
+  user-select: none;
+}
+.window-drag-region {
+  -webkit-app-region: drag;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 9px;
+  padding: 0 14px;
+  color: #dfe8e5;
+  font-size: 12px;
+  font-weight: 600;
+}
+.window-drag-region img {
+  width: 19px;
+  height: 19px;
+  padding: 2px;
+  border-radius: 5px;
+  background: #caffec;
+}
+.window-context {
+  padding-left: 9px;
+  border-left: 1px solid #2a343a;
+  color: var(--color-text-subtle);
+  font-size: 10px;
+  font-weight: 500;
+}
+.window-controls {
+  -webkit-app-region: no-drag;
+  display: flex;
+}
+.window-controls button {
+  width: 46px;
+  border: 0;
+  color: #8c979f;
+  background: transparent;
+  font-size: 15px;
+  cursor: default;
+}
+.window-controls button:hover {
+  color: #f7fbfa;
+  background: #ffffff0d;
+}
+.window-controls .window-close:hover {
+  color: white;
+  background: #d94a57;
+}
 .app-shell {
   display: grid;
   grid-template-columns: 236px 1fr;
-  min-height: 100vh;
+  min-height: calc(100vh - 42px);
+}
+button:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+button {
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease,
+    box-shadow 140ms ease;
+}
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+button:disabled {
+  cursor: not-allowed;
 }
 .sidebar {
   position: relative;
   display: flex;
   flex-direction: column;
   padding: 30px 18px 20px;
-  border-right: 1px solid #20252c;
+  border-right: 1px solid var(--color-border);
   background: rgba(8, 11, 16, 0.88);
   backdrop-filter: blur(24px);
 }
@@ -42,7 +161,11 @@ button {
   align-items: center;
   gap: 11px;
   padding: 0 10px 34px;
-  font: 700 19px "Manrope";
+  font:
+    700 19px "Manrope",
+    "DM Sans",
+    "Segoe UI",
+    sans-serif;
   letter-spacing: -0.5px;
 }
 .brand-mark {
@@ -178,7 +301,11 @@ nav {
 }
 h1 {
   margin: 7px 0 0;
-  font: 600 24px "Manrope";
+  font:
+    600 24px "Manrope",
+    "DM Sans",
+    "Segoe UI",
+    sans-serif;
   letter-spacing: -0.8px;
 }
 .top-actions {
@@ -218,14 +345,14 @@ h1 {
 .readiness-card,
 .activity-card,
 .update-card {
-  border: 1px solid #242b33;
+  border: 1px solid var(--color-border);
   border-radius: 16px;
   background: linear-gradient(
     145deg,
     rgba(20, 25, 31, 0.96),
     rgba(12, 16, 21, 0.96)
   );
-  box-shadow: 0 22px 60px #0000002e;
+  box-shadow: var(--shadow-card);
 }
 .hero-card {
   padding: 34px;
@@ -246,6 +373,11 @@ h1 {
   place-items: center;
   height: 172px;
   isolation: isolate;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  cursor: pointer;
 }
 .mascot-stage img {
   position: relative;
@@ -254,7 +386,9 @@ h1 {
   height: 164px;
   object-fit: contain;
   filter: drop-shadow(0 20px 26px #03110e80);
-  animation: mascot-float 5s ease-in-out infinite;
+  animation:
+    reaction-arrive 380ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    mascot-float 5s ease-in-out 380ms infinite;
 }
 .mascot-halo {
   position: absolute;
@@ -285,6 +419,62 @@ h1 {
   letter-spacing: 0.6px;
   text-transform: uppercase;
 }
+.mascot-message {
+  position: absolute;
+  z-index: 4;
+  right: -4px;
+  bottom: -11px;
+  width: max-content;
+  max-width: 210px;
+  padding: 7px 10px;
+  border: 1px solid #2a353d;
+  border-radius: 9px;
+  color: #b8c2ca;
+  background: #0a1015ed;
+  box-shadow: 0 12px 30px #0008;
+  font-size: 10px;
+  line-height: 1.35;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: 160ms ease;
+  pointer-events: none;
+}
+.mascot-stage:hover .mascot-message,
+.mascot-stage:focus-visible .mascot-message,
+.mascot-stage.state-attention .mascot-message {
+  opacity: 1;
+  transform: translateY(0);
+}
+.mascot-stage:focus-visible {
+  border-radius: 14px;
+  box-shadow: 0 0 0 2px #62e4b566;
+}
+.mascot-stage.state-thinking img,
+.mascot-stage.state-verifying img {
+  animation: mascot-breathe 1.7s ease-in-out infinite;
+}
+.mascot-stage.state-working img {
+  animation: mascot-working 1.2s ease-in-out infinite;
+}
+.mascot-stage.state-success img {
+  animation: mascot-celebrate 580ms cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+.mascot-stage.state-attention .mascot-status,
+.status-pill.state-attention {
+  border-color: #804049;
+  color: #ffadb4;
+  background: #35191f;
+}
+@keyframes reaction-arrive {
+  from {
+    opacity: 0;
+    transform: scale(0.88) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
 @keyframes mascot-float {
   0%,
   100% {
@@ -292,6 +482,37 @@ h1 {
   }
   50% {
     transform: translateY(-7px) rotate(0.6deg);
+  }
+}
+@keyframes mascot-breathe {
+  0%,
+  100% {
+    transform: scale(0.985) translateY(2px);
+  }
+  50% {
+    transform: scale(1.02) translateY(-2px);
+  }
+}
+@keyframes mascot-working {
+  0%,
+  100% {
+    transform: translateY(1px) rotate(-0.5deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(0.5deg);
+  }
+}
+@keyframes mascot-celebrate {
+  0% {
+    transform: scale(0.86) rotate(-3deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.07) rotate(1deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0);
   }
 }
 .status-pill {
@@ -307,7 +528,11 @@ h1 {
 }
 .hero-copy h2 {
   margin: 21px 0 9px;
-  font: 600 35px "Manrope";
+  font:
+    600 35px "Manrope",
+    "DM Sans",
+    "Segoe UI",
+    sans-serif;
   letter-spacing: -1.4px;
 }
 .hero-copy p {
@@ -323,6 +548,10 @@ h1 {
   border-radius: 12px;
   background: #0c1116;
   box-shadow: 0 0 0 4px #ffffff02;
+}
+.prompt-box:focus-within {
+  border-color: #4a6b61;
+  box-shadow: var(--focus-ring);
 }
 textarea {
   width: 100%;
@@ -369,6 +598,12 @@ textarea::placeholder {
 .run-button b {
   margin-left: 12px;
 }
+.run-button:disabled {
+  color: #55625e;
+  background: #25302d;
+  box-shadow: none;
+  cursor: not-allowed;
+}
 .suggestions {
   display: flex;
   gap: 8px;
@@ -383,6 +618,13 @@ textarea::placeholder {
   font-size: 11px;
   cursor: pointer;
 }
+.suggestions button:hover,
+.ghost-button:hover,
+.attach:hover {
+  border-color: #3d4c56;
+  color: #dce7e3;
+  background: #18201f;
+}
 .readiness-card {
   padding: 24px;
 }
@@ -393,7 +635,11 @@ textarea::placeholder {
 }
 .card-heading h3 {
   margin: 7px 0 0;
-  font: 600 16px "Manrope";
+  font:
+    600 16px "Manrope",
+    "DM Sans",
+    "Segoe UI",
+    sans-serif;
 }
 .score {
   padding: 5px 7px;
@@ -482,6 +728,13 @@ textarea::placeholder {
   font-size: 11px;
   line-height: 1.45;
 }
+.empty-state.has-task > span {
+  color: #64e7b8;
+  background: #153028;
+}
+.empty-state.has-task strong {
+  color: #d8f9ed;
+}
 .update-card {
   display: flex;
   align-items: center;
@@ -562,6 +815,6 @@ footer {
 }
 @media (prefers-reduced-motion: reduce) {
   .mascot-stage img {
-    animation: none;
+    animation: none !important;
   }
 }

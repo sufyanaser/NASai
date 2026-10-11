@@ -13,7 +13,7 @@ function createWindow(): BrowserWindow {
     minHeight: 700,
     backgroundColor: "#080b10",
     icon: join(currentDirectory, "../assets/NASai.ico"),
-    titleBarStyle: "hiddenInset",
+    frame: false,
     autoHideMenuBar: true,
     show: false,
     webPreferences: {
@@ -45,6 +45,18 @@ app.whenReady().then(() => {
     platform: process.platform,
     packaged: app.isPackaged,
   }));
+  ipcMain.on("window:minimize", (event) =>
+    BrowserWindow.fromWebContents(event.sender)?.minimize(),
+  );
+  ipcMain.on("window:toggle-maximize", (event) => {
+    const target = BrowserWindow.fromWebContents(event.sender);
+    if (!target) return;
+    if (target.isMaximized()) target.unmaximize();
+    else target.maximize();
+  });
+  ipcMain.on("window:close", (event) =>
+    BrowserWindow.fromWebContents(event.sender)?.close(),
+  );
 
   const window = createWindow();
   registerUpdater(window);

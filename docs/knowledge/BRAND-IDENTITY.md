@@ -12,6 +12,10 @@ NASai is represented by a compact, friendly coding-agent character: a soft asymm
 | `assets/brand/nasai-mark-mono.svg` | Single-color category icon, navigation, status chips, and small sizes          |
 | `assets/brand/nasai-app-icon.png`  | Master square application icon                                                 |
 | `assets/NASai.ico`                 | Generated multi-resolution Windows icon                                        |
+| `assets/brand/nasai-thinking.png`  | Discovery, planning, and verification states                                   |
+| `assets/brand/nasai-working.png`   | Active implementation state                                                    |
+| `assets/brand/nasai-success.png`   | Evidence-backed completion state                                               |
+| `assets/brand/nasai-attention.png` | Recoverable failure or human-input state                                       |
 
 The single-color mark uses `currentColor`. It may appear white, teal, or another category color, but its geometry must not change between categories.
 
@@ -27,6 +31,10 @@ The single-color mark uses `currentColor`. It may appear white, teal, or another
 ## Motion
 
 The mascot may float subtly and the signal dot may pulse. Motion must be calm, functional, and disabled when the operating system requests reduced motion. Avoid constant bouncing, exaggerated squash, or decorative animation that competes with the task.
+
+## Behavioral contract
+
+The mascot reflects product state; it must never imply progress that did not happen. The default sequence is `ready → thinking → working → verifying → verified`. A failure or approval requirement moves to `needs attention`. “Verified” is reserved for a completed acceptance check, not merely an animation timer in production. The current AppShell sequence is an explicitly simulated interaction prototype until connected to the task engine.
 
 ## Restrictions
 

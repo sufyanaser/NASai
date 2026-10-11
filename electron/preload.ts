@@ -5,6 +5,9 @@ contextBridge.exposeInMainWorld("nasai", {
   getAppInfo: () => ipcRenderer.invoke("app:get-info"),
   checkForUpdates: () => ipcRenderer.invoke("updater:check"),
   installUpdate: () => ipcRenderer.invoke("updater:install"),
+  minimizeWindow: () => ipcRenderer.send("window:minimize"),
+  toggleMaximizeWindow: () => ipcRenderer.send("window:toggle-maximize"),
+  closeWindow: () => ipcRenderer.send("window:close"),
   onUpdateStatus: (listener: (status: UpdateStatus) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, status: UpdateStatus) =>
       listener(status);

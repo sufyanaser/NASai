@@ -26,6 +26,9 @@ interface Window {
     }>;
     checkForUpdates: () => Promise<UpdateStatus>;
     installUpdate: () => Promise<void>;
+    minimizeWindow: () => void;
+    toggleMaximizeWindow: () => void;
+    closeWindow: () => void;
     onUpdateStatus: (listener: (status: UpdateStatus) => void) => () => void;
   };
 }

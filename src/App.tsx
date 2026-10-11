@@ -6,15 +6,22 @@ const Icon = ({ children }: { children: React.ReactNode }) => (
   </span>
 );
 
-const navItems = [
-  { label: "Workspace", icon: "⌘", active: true },
+type NavTab = "Workspace" | "Tasks" | "Evidence" | "Knowledge";
+
+const navItems: Array<{ label: NavTab; icon: string }> = [
+  { label: "Workspace", icon: "⌘" },
   { label: "Tasks", icon: "◇" },
   { label: "Evidence", icon: "◎" },
   { label: "Knowledge", icon: "▤" },
 ];
 
 type AgentState =
-  "idle" | "thinking" | "working" | "verifying" | "success" | "attention";
+  | "idle"
+  | "thinking"
+  | "working"
+  | "verifying"
+  | "success"
+  | "attention";
 
 const reactions: Record<
   AgentState,
@@ -61,7 +68,12 @@ const suggestionText: Record<string, string> = {
     "Plan the smallest testable version of this feature without scope creep.",
 };
 
+function stateBadgeClass(state: GateState) {
+  return `evidence-state ${state.toLowerCase().replace(" ", "-")}`;
+}
+
 export function App() {
+  const [activeTab, setActiveTab] = useState<NavTab>("Workspace");
   const [update, setUpdate] = useState<UpdateStatus>({
     state: "idle",
     message: "Updates ready",
@@ -72,6 +84,7 @@ export function App() {
   const [lastTask, setLastTask] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceSnapshot | null>(null);
   const [taskEvidence, setTaskEvidence] = useState<TaskEvidence | null>(null);
+  const [taskHistory, setTaskHistory] = useState<TaskEvidence[]>([]);
   const [proposals, setProposals] = useState<ProposedAction[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<{
@@ -104,6 +117,14 @@ export function App() {
   useEffect(() => {
     void window.nasai?.getAppInfo().then((info) => setVersion(info.version));
     void window.nasai?.getWorkspace().then(setWorkspace);
+    void window.nasai?.listTasks?.().then((items) => {
+      if (items && items.length > 0) {
+        setTaskHistory(items);
+        setTaskEvidence(items[0]);
+        setProposals(items[0].proposals ?? []);
+        setLastTask(items[0].prompt);
+      }
+    });
     const removeUpdateListener = window.nasai?.onUpdateStatus(setUpdate);
     const removeTaskListener = window.nasai?.onTaskStatus(setAgentState);
     return () => {
@@ -111,6 +132,17 @@ export function App() {
       removeTaskListener?.();
     };
   }, []);
+
+  const applyTaskRecord = (record: TaskEvidence) => {
+    const nextProposals = record.proposals ?? [];
+    setTaskEvidence(record);
+    setProposals(nextProposals);
+    setLastTask(record.prompt);
+    setTaskHistory((prev) => [
+      record,
+      ...prev.filter((item) => item.id !== record.id),
+    ]);
+  };
 
   const checkUpdates = () => void window.nasai?.checkForUpdates();
 
@@ -124,9 +156,7 @@ export function App() {
       setAgentState("thinking");
       const evidence = await window.nasai.runTask(task);
       const nextProposals = evidence.proposals ?? [];
-      setTaskEvidence(evidence);
-      setProposals(nextProposals);
-      setLastTask(evidence.prompt);
+      applyTaskRecord(evidence);
       const hasPendingApproval = nextProposals.some(
         (p) => p.requiresApproval && p.status === "pending_approval",
       );
@@ -154,6 +184,9 @@ export function App() {
     });
     const next = proposals.map((p) => (p.id === actionId ? updated : p));
     setProposals(next);
+    if (taskEvidence) {
+      setTaskEvidence({ ...taskEvidence, proposals: next });
+    }
     const stillWaiting = next.some(
       (p) => p.requiresApproval && p.status === "pending_approval",
     );
@@ -164,6 +197,28 @@ export function App() {
           ? "success"
           : "idle",
     );
+  };
+
+  const handleExecuteApproved = async (actionId: string) => {
+    if (!window.nasai?.executeProposal) return;
+    const updatedTask = await window.nasai.executeProposal(actionId);
+    applyTaskRecord(updatedTask);
+    setAgentState(updatedTask.status === "PASS" ? "success" : "attention");
+  };
+
+  const handleRollbackLast = async () => {
+    if (!window.nasai?.rollbackLastCheckpoint) return;
+    const updatedTask = await window.nasai.rollbackLastCheckpoint();
+    applyTaskRecord(updatedTask);
+    setAgentState("success");
+  };
+
+  const handleRunFixtureCycle = async () => {
+    if (!window.nasai?.runSafeEditFixtureCycle) return;
+    setAgentState("working");
+    const cycleTask = await window.nasai.runSafeEditFixtureCycle();
+    applyTaskRecord(cycleTask);
+    setAgentState(cycleTask.status === "PASS" ? "success" : "attention");
   };
 
   const startEditingProposal = (proposal: ProposedAction) => {
@@ -182,7 +237,11 @@ export function App() {
       reason: editDraft.reason,
       proposedContent: editDraft.proposedContent,
     });
-    setProposals((prev) => prev.map((p) => (p.id === actionId ? updated : p)));
+    const next = proposals.map((p) => (p.id === actionId ? updated : p));
+    setProposals(next);
+    if (taskEvidence) {
+      setTaskEvidence({ ...taskEvidence, proposals: next });
+    }
     setEditingId(null);
     setAgentState("attention");
   };
@@ -224,6 +283,187 @@ export function App() {
     if (isRunning) return;
     if (agentState !== "idle") setAgentState("idle");
   };
+
+  const activeCheckpoints = (taskEvidence?.checkpoints ?? []).filter(
+    (chk) => chk.rolledBackAt === null,
+  );
+
+  const renderProposalsSection = () =>
+    proposals.length > 0 && (
+      <section className="proposals-section" aria-label="Proposed actions">
+        <div className="proposals-header">
+          <div>
+            <span className="eyebrow">APPROVAL GATE</span>
+            <h4>
+              Proposed actions ({pendingSensitiveCount} awaiting approval)
+            </h4>
+          </div>
+          <span className="approval-policy-badge">
+            Single-action approval only · Blanket approvals disabled
+          </span>
+        </div>
+        <div className="proposals-list">
+          {proposals.map((proposal) => (
+            <article
+              className={`proposal-card risk-${proposal.riskLevel}`}
+              key={proposal.id}
+            >
+              <div className="proposal-meta">
+                <span className={`risk-badge risk-${proposal.riskLevel}`}>
+                  ▲ RISK: {proposal.riskLevel.toUpperCase()}
+                </span>
+                <span className="proposal-kind">{proposal.kind}</span>
+                <span className={`proposal-status status-${proposal.status}`}>
+                  {proposal.status.replaceAll("_", " ").toUpperCase()}
+                </span>
+              </div>
+              <div className="proposal-body">
+                <strong>{proposal.description}</strong>
+                <p className="proposal-reason">{proposal.reason}</p>
+                <div className="proposal-target">
+                  <span>Affected target:</span> <code>{proposal.target}</code>
+                </div>
+                {proposal.sensitiveReason && (
+                  <small className="sensitive-reason">
+                    Sensitive action: {proposal.sensitiveReason}
+                  </small>
+                )}
+              </div>
+              {editingId === proposal.id ? (
+                <div
+                  className="proposal-editor"
+                  aria-label="Edit proposal form"
+                >
+                  <label>
+                    Description
+                    <input
+                      type="text"
+                      aria-label="Proposal description"
+                      value={editDraft.description}
+                      onChange={(e) =>
+                        setEditDraft((prev) => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    Reason
+                    <input
+                      type="text"
+                      aria-label="Proposal reason"
+                      value={editDraft.reason}
+                      onChange={(e) =>
+                        setEditDraft((prev) => ({
+                          ...prev,
+                          reason: e.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  {(proposal.kind === "create_file" ||
+                    proposal.kind === "edit_file") && (
+                    <label>
+                      Proposed content
+                      <textarea
+                        aria-label="Proposed content"
+                        value={editDraft.proposedContent}
+                        onChange={(e) =>
+                          setEditDraft((prev) => ({
+                            ...prev,
+                            proposedContent: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  )}
+                  <div className="proposal-actions">
+                    <button
+                      className="approve-button"
+                      type="button"
+                      onClick={() => void saveProposalEdit(proposal.id)}
+                    >
+                      Save proposal edits
+                    </button>
+                    <button
+                      className="ghost-button"
+                      type="button"
+                      onClick={() => setEditingId(null)}
+                    >
+                      Cancel edit
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <pre
+                    className="proposal-diff"
+                    aria-label={`Preview for ${proposal.target}`}
+                  >
+                    {proposal.preview}
+                  </pre>
+                  <small className="proposal-recovery">
+                    Recovery: {proposal.recovery.description}
+                  </small>
+                  {proposal.evidence && (
+                    <div className="proposal-evidence-line">
+                      <span className={stateBadgeClass(proposal.evidence.state)}>
+                        {proposal.evidence.state}
+                      </span>
+                      <small>{proposal.evidence.summary}</small>
+                    </div>
+                  )}
+                  {proposal.status === "pending_approval" && (
+                    <div className="proposal-actions">
+                      <button
+                        className="approve-button"
+                        type="button"
+                        onClick={() =>
+                          void handleDecision(proposal.id, "approve")
+                        }
+                      >
+                        Approve single action
+                      </button>
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => startEditingProposal(proposal)}
+                      >
+                        Edit proposal
+                      </button>
+                      <button
+                        className="reject-button"
+                        type="button"
+                        onClick={() =>
+                          void handleDecision(proposal.id, "reject")
+                        }
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                  {proposal.status === "approved" &&
+                    window.nasai?.executeProposal && (
+                      <div className="proposal-actions">
+                        <button
+                          className="approve-button"
+                          type="button"
+                          onClick={() =>
+                            void handleExecuteApproved(proposal.id)
+                          }
+                        >
+                          Execute approved action
+                        </button>
+                      </div>
+                    )}
+                </>
+              )}
+            </article>
+          ))}
+        </div>
+      </section>
+    );
 
   return (
     <main className="application-frame">
@@ -273,9 +513,10 @@ export function App() {
           <nav aria-label="Main navigation">
             {navItems.map((item) => (
               <button
-                className={`nav-item ${item.active ? "active" : ""}`}
+                className={`nav-item ${activeTab === item.label ? "active" : ""}`}
                 key={item.label}
                 type="button"
+                onClick={() => setActiveTab(item.label)}
               >
                 <Icon>{item.icon}</Icon>
                 {item.label}
@@ -325,331 +566,570 @@ export function App() {
             </div>
           </header>
 
-          <div className="content-grid">
-            <section className="hero-card">
-              <div className="hero-intro">
-                <div className="hero-copy">
-                  <span className={`status-pill state-${agentState}`}>
-                    {reaction.label}
-                  </span>
-                  <h2>What should we investigate?</h2>
-                  <p>
-                    Describe a focused task. NASai will inspect the selected
-                    workspace, load project rules, and capture evidence without
-                    changing project files.
-                  </p>
-                </div>
-                <button
-                  className={`mascot-stage state-${agentState}`}
-                  type="button"
-                  onClick={acknowledgeMascot}
-                  aria-label={`NASai status: ${reaction.label}. ${reaction.message}`}
-                >
-                  <span className="mascot-halo" />
-                  <img key={reaction.image} src={reaction.image} alt="" />
-                  <span className="mascot-status">{reaction.label}</span>
-                  <span className="mascot-message">{reaction.message}</span>
-                </button>
-              </div>
-              <div className="prompt-box">
-                <textarea
-                  aria-label="Task description"
-                  placeholder="Example: Audit the update flow and fix only verified failures…"
-                  value={task}
-                  onChange={(event) => {
-                    setTask(event.target.value);
-                    if (!isRunning) setAgentState("idle");
-                  }}
-                  disabled={isRunning}
-                />
-                <div className="prompt-actions">
-                  <button
-                    className="attach"
-                    type="button"
-                    aria-label="Attach context"
-                  >
-                    ＋
-                  </button>
-                  <span className="workspace-scope">
-                    {workspace
-                      ? `Scope: ${workspace.path}`
-                      : "Choose a workspace before starting"}
-                  </span>
-                  <button
-                    className="run-button"
-                    type="button"
-                    onClick={() => void runTask()}
-                    disabled={!task.trim() || isRunning || !workspace}
-                  >
-                    {isRunning ? reaction.label : "Start task"}{" "}
-                    <b>{isRunning ? "•••" : "↗"}</b>
-                  </button>
-                </div>
-              </div>
-              <div className="suggestions">
-                {Object.keys(suggestionText).map((label) => (
-                  <button
-                    type="button"
-                    key={label}
-                    onClick={() => setTask(suggestionText[label])}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <aside className="readiness-card">
-              <div className="card-heading">
-                <div>
-                  <span className="eyebrow">PREFLIGHT</span>
-                  <h3>Workspace readiness</h3>
-                </div>
-                <span className="score">{workspace ? "3 checks" : "0/3"}</span>
-              </div>
-              <div className="checks">
-                {checks.map(([name, state]) => (
-                  <div className="check" key={name}>
-                    <span className="checkmark">{workspace ? "✓" : "·"}</span>
-                    <div>
-                      <strong>{name}</strong>
-                      <small>{state}</small>
-                    </div>
+          {activeTab === "Workspace" && (
+            <div className="content-grid">
+              <section className="hero-card">
+                <div className="hero-intro">
+                  <div className="hero-copy">
+                    <span className={`status-pill state-${agentState}`}>
+                      {reaction.label}
+                    </span>
+                    <h2>What should we investigate?</h2>
+                    <p>
+                      Describe a focused task. NASai will inspect the selected
+                      workspace, load project rules, and capture evidence
+                      without changing project files.
+                    </p>
                   </div>
-                ))}
-              </div>
-              <button className="review-link" type="button">
-                Review operating charter <span>→</span>
-              </button>
-            </aside>
+                  <button
+                    className={`mascot-stage state-${agentState}`}
+                    type="button"
+                    onClick={acknowledgeMascot}
+                    aria-label={`NASai status: ${reaction.label}. ${reaction.message}`}
+                  >
+                    <span className="mascot-halo" />
+                    <img key={reaction.image} src={reaction.image} alt="" />
+                    <span className="mascot-status">{reaction.label}</span>
+                    <span className="mascot-message">{reaction.message}</span>
+                  </button>
+                </div>
+                <div className="prompt-box">
+                  <textarea
+                    aria-label="Task description"
+                    placeholder="Example: Audit the update flow and fix only verified failures…"
+                    value={task}
+                    onChange={(event) => {
+                      setTask(event.target.value);
+                      if (!isRunning) setAgentState("idle");
+                    }}
+                    disabled={isRunning}
+                  />
+                  <div className="prompt-actions">
+                    <button
+                      className="attach"
+                      type="button"
+                      aria-label="Attach context"
+                    >
+                      ＋
+                    </button>
+                    <span className="workspace-scope">
+                      {workspace
+                        ? `Scope: ${workspace.path}`
+                        : "Choose a workspace before starting"}
+                    </span>
+                    <button
+                      className="run-button"
+                      type="button"
+                      onClick={() => void runTask()}
+                      disabled={!task.trim() || isRunning || !workspace}
+                    >
+                      {isRunning ? reaction.label : "Start task"}{" "}
+                      <b>{isRunning ? "•••" : "↗"}</b>
+                    </button>
+                  </div>
+                </div>
+                <div className="suggestions">
+                  {Object.keys(suggestionText).map((label) => (
+                    <button
+                      type="button"
+                      key={label}
+                      onClick={() => setTask(suggestionText[label])}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </section>
 
-            <section className="activity-card">
-              <div className="card-heading">
-                <div>
-                  <span className="eyebrow">RECENT ACTIVITY</span>
-                  <h3>{lastTask ? "Task verified" : "Nothing to recover"}</h3>
+              <aside className="readiness-card">
+                <div className="card-heading">
+                  <div>
+                    <span className="eyebrow">PREFLIGHT</span>
+                    <h3>Workspace readiness</h3>
+                  </div>
+                  <span className="score">
+                    {workspace ? "3 checks" : "0/3"}
+                  </span>
                 </div>
-                <span className="muted">Today</span>
-              </div>
-              <div className={`empty-state ${lastTask ? "has-task" : ""}`}>
-                <span>◇</span>
-                <div>
-                  <strong>
-                    {lastTask ?? "Your verified tasks will appear here"}
-                  </strong>
-                  <p>
-                    {lastTask
-                      ? (taskEvidence?.summary ??
-                        "Evidence is ready for review.")
-                      : "Each task keeps its decisions, commands, gate results, and evidence together."}
-                  </p>
-                </div>
-              </div>
-              {taskEvidence && (
-                <div className="evidence-list" aria-label="Task evidence">
-                  {taskEvidence.checks.map((check) => (
-                    <div key={check.label}>
-                      <span
-                        className={`evidence-state ${check.state.toLowerCase().replace(" ", "-")}`}
-                      >
-                        {check.state}
-                      </span>
-                      <strong>{check.label}</strong>
-                      <small>{check.detail}</small>
+                <div className="checks">
+                  {checks.map(([name, state]) => (
+                    <div className="check" key={name}>
+                      <span className="checkmark">{workspace ? "✓" : "·"}</span>
+                      <div>
+                        <strong>{name}</strong>
+                        <small>{state}</small>
+                      </div>
                     </div>
                   ))}
                 </div>
-              )}
-              {proposals.length > 0 && (
-                <section
-                  className="proposals-section"
-                  aria-label="Proposed actions"
+                <button
+                  className="review-link"
+                  type="button"
+                  onClick={() => setActiveTab("Knowledge")}
                 >
-                  <div className="proposals-header">
-                    <div>
-                      <span className="eyebrow">APPROVAL GATE</span>
-                      <h4>
-                        Proposed actions ({pendingSensitiveCount} awaiting
-                        approval)
-                      </h4>
-                    </div>
-                    <span className="approval-policy-badge">
-                      Single-action approval only · Blanket approvals disabled
-                    </span>
+                  Review operating charter <span>→</span>
+                </button>
+              </aside>
+
+              <section className="activity-card">
+                <div className="card-heading">
+                  <div>
+                    <span className="eyebrow">RECENT ACTIVITY</span>
+                    <h3>{lastTask ? "Task verified" : "Nothing to recover"}</h3>
                   </div>
-                  <div className="proposals-list">
-                    {proposals.map((proposal) => (
-                      <article
-                        className={`proposal-card risk-${proposal.riskLevel}`}
-                        key={proposal.id}
-                      >
-                        <div className="proposal-meta">
-                          <span
-                            className={`risk-badge risk-${proposal.riskLevel}`}
-                          >
-                            ▲ RISK: {proposal.riskLevel.toUpperCase()}
-                          </span>
-                          <span className="proposal-kind">{proposal.kind}</span>
-                          <span
-                            className={`proposal-status status-${proposal.status}`}
-                          >
-                            {proposal.status.replaceAll("_", " ").toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="proposal-body">
-                          <strong>{proposal.description}</strong>
-                          <p className="proposal-reason">{proposal.reason}</p>
-                          <div className="proposal-target">
-                            <span>Affected target:</span>{" "}
-                            <code>{proposal.target}</code>
-                          </div>
-                          {proposal.sensitiveReason && (
-                            <small className="sensitive-reason">
-                              Sensitive action: {proposal.sensitiveReason}
-                            </small>
-                          )}
-                        </div>
-                        {editingId === proposal.id ? (
-                          <div
-                            className="proposal-editor"
-                            aria-label="Edit proposal form"
-                          >
-                            <label>
-                              Description
-                              <input
-                                type="text"
-                                aria-label="Proposal description"
-                                value={editDraft.description}
-                                onChange={(e) =>
-                                  setEditDraft((prev) => ({
-                                    ...prev,
-                                    description: e.target.value,
-                                  }))
-                                }
-                              />
-                            </label>
-                            <label>
-                              Reason
-                              <input
-                                type="text"
-                                aria-label="Proposal reason"
-                                value={editDraft.reason}
-                                onChange={(e) =>
-                                  setEditDraft((prev) => ({
-                                    ...prev,
-                                    reason: e.target.value,
-                                  }))
-                                }
-                              />
-                            </label>
-                            {(proposal.kind === "create_file" ||
-                              proposal.kind === "edit_file") && (
-                              <label>
-                                Proposed content
-                                <textarea
-                                  aria-label="Proposed content"
-                                  value={editDraft.proposedContent}
-                                  onChange={(e) =>
-                                    setEditDraft((prev) => ({
-                                      ...prev,
-                                      proposedContent: e.target.value,
-                                    }))
-                                  }
-                                />
-                              </label>
-                            )}
-                            <div className="proposal-actions">
-                              <button
-                                className="approve-button"
-                                type="button"
-                                onClick={() =>
-                                  void saveProposalEdit(proposal.id)
-                                }
-                              >
-                                Save proposal edits
-                              </button>
-                              <button
-                                className="ghost-button"
-                                type="button"
-                                onClick={() => setEditingId(null)}
-                              >
-                                Cancel edit
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <pre
-                              className="proposal-diff"
-                              aria-label={`Preview for ${proposal.target}`}
-                            >
-                              {proposal.preview}
-                            </pre>
-                            <small className="proposal-recovery">
-                              Recovery: {proposal.recovery.description}
-                            </small>
-                            {proposal.status === "pending_approval" && (
-                              <div className="proposal-actions">
-                                <button
-                                  className="approve-button"
-                                  type="button"
-                                  onClick={() =>
-                                    void handleDecision(proposal.id, "approve")
-                                  }
-                                >
-                                  Approve single action
-                                </button>
-                                <button
-                                  className="ghost-button"
-                                  type="button"
-                                  onClick={() => startEditingProposal(proposal)}
-                                >
-                                  Edit proposal
-                                </button>
-                                <button
-                                  className="reject-button"
-                                  type="button"
-                                  onClick={() =>
-                                    void handleDecision(proposal.id, "reject")
-                                  }
-                                >
-                                  Reject
-                                </button>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </article>
+                  <span className="muted">Today</span>
+                </div>
+                <div className={`empty-state ${lastTask ? "has-task" : ""}`}>
+                  <span>◇</span>
+                  <div>
+                    <strong>
+                      {lastTask ?? "Your verified tasks will appear here"}
+                    </strong>
+                    <p>
+                      {lastTask
+                        ? (taskEvidence?.summary ??
+                          "Evidence is ready for review.")
+                        : "Each task keeps its decisions, commands, gate results, and evidence together."}
+                    </p>
+                  </div>
+                </div>
+                {taskEvidence && (
+                  <div className="evidence-list" aria-label="Task evidence">
+                    {taskEvidence.checks.map((check) => (
+                      <div key={check.label}>
+                        <span className={stateBadgeClass(check.state)}>
+                          {check.state}
+                        </span>
+                        <strong>{check.label}</strong>
+                        <small>{check.detail}</small>
+                      </div>
                     ))}
                   </div>
-                </section>
-              )}
-            </section>
+                )}
+                {renderProposalsSection()}
+              </section>
 
-            <aside className="update-card">
-              <div>
-                <span className={`update-orb ${update.state}`}>
-                  <i />
-                </span>
+              <aside className="update-card">
                 <div>
-                  <strong>NASai {version}</strong>
-                  <small>{update.message}</small>
+                  <span className={`update-orb ${update.state}`}>
+                    <i />
+                  </span>
+                  <div>
+                    <strong>NASai {version}</strong>
+                    <small>{update.message}</small>
+                  </div>
+                </div>
+                {update.state === "downloaded" ? (
+                  <button
+                    type="button"
+                    onClick={() => void window.nasai?.installUpdate()}
+                  >
+                    Restart & install
+                  </button>
+                ) : (
+                  <button type="button" onClick={checkUpdates}>
+                    Check
+                  </button>
+                )}
+              </aside>
+            </div>
+          )}
+
+          {activeTab === "Tasks" && (
+            <section className="ledger-screen" aria-label="Tasks view">
+              <div className="ledger-card">
+                <div className="card-heading">
+                  <div>
+                    <span className="eyebrow">TASK LEDGER & STAGES</span>
+                    <h2>
+                      {taskEvidence
+                        ? taskEvidence.prompt
+                        : "No active task recorded yet"}
+                    </h2>
+                  </div>
+                  <div className="ledger-header-actions">
+                    {taskEvidence && (
+                      <span className={stateBadgeClass(taskEvidence.status)}>
+                        {taskEvidence.status}
+                      </span>
+                    )}
+                    {window.nasai?.runSafeEditFixtureCycle && (
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => void handleRunFixtureCycle()}
+                      >
+                        Run isolated safe-edit cycle
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {taskEvidence ? (
+                  <div className="ledger-sections">
+                    <div className="timing-bar" aria-label="Task timing">
+                      <span>Started: {taskEvidence.startedAt}</span>
+                      <span>Completed: {taskEvidence.completedAt}</span>
+                      <span>
+                        Duration: {taskEvidence.durationMs ?? 0}ms
+                      </span>
+                      <span>Workspace: {taskEvidence.workspace}</span>
+                    </div>
+
+                    <div className="ledger-block" aria-label="Task stages">
+                      <span className="eyebrow">STAGES</span>
+                      <div className="stages-grid">
+                        {(taskEvidence.stages ?? []).map((stage) => (
+                          <div className="stage-row" key={stage.id}>
+                            <span className={stateBadgeClass(stage.state)}>
+                              {stage.state}
+                            </span>
+                            <div>
+                              <strong>{stage.label}</strong>
+                              <small>{stage.detail}</small>
+                            </div>
+                            <time>{stage.timestamp}</time>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="ledger-block" aria-label="Approval summary">
+                      <span className="eyebrow">APPROVAL DECISIONS</span>
+                      <div className="stages-grid">
+                        {proposals.length === 0 ? (
+                          <small className="muted">
+                            No proposals recorded for this task.
+                          </small>
+                        ) : (
+                          proposals.map((prop) => (
+                            <div className="stage-row" key={prop.id}>
+                              <span
+                                className={`proposal-status status-${prop.status}`}
+                              >
+                                {prop.status.replaceAll("_", " ").toUpperCase()}
+                              </span>
+                              <div>
+                                <strong>
+                                  {prop.description} ({prop.target})
+                                </strong>
+                                <small>
+                                  Risk: {prop.riskLevel.toUpperCase()} ·{" "}
+                                  {prop.requiresApproval
+                                    ? "Requires explicit single-action approval"
+                                    : "Read-only"}
+                                </small>
+                              </div>
+                              <time>{prop.updatedAt}</time>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {renderProposalsSection()}
+
+                    {taskHistory.length > 1 && (
+                      <div className="ledger-block" aria-label="Task history">
+                        <span className="eyebrow">
+                          RECENT TASK HISTORY ({taskHistory.length}/50)
+                        </span>
+                        <div className="stages-grid">
+                          {taskHistory.map((item) => (
+                            <button
+                              className="history-item-btn"
+                              key={item.id}
+                              type="button"
+                              onClick={() => applyTaskRecord(item)}
+                            >
+                              <span className={stateBadgeClass(item.status)}>
+                                {item.status}
+                              </span>
+                              <strong>{item.prompt}</strong>
+                              <small>{item.completedAt}</small>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="muted">
+                    Start a task in the Workspace tab or run the isolated
+                    safe-edit fixture cycle to inspect stages, proposals, and
+                    approvals.
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
+
+          {activeTab === "Evidence" && (
+            <section className="ledger-screen" aria-label="Evidence view">
+              <div className="ledger-card">
+                <div className="card-heading">
+                  <div>
+                    <span className="eyebrow">
+                      INSPECTABLE EVIDENCE & RECOVERY LEDGER
+                    </span>
+                    <h2>
+                      {taskEvidence
+                        ? `Verification status: ${taskEvidence.status}`
+                        : "No verification evidence recorded yet"}
+                    </h2>
+                  </div>
+                  <div className="ledger-header-actions">
+                    {taskEvidence && (
+                      <span className={stateBadgeClass(taskEvidence.status)}>
+                        {taskEvidence.status}
+                      </span>
+                    )}
+                    {activeCheckpoints.length > 0 && (
+                      <button
+                        className="reject-button"
+                        type="button"
+                        onClick={() => void handleRollbackLast()}
+                      >
+                        Rollback last action
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {taskEvidence ? (
+                  <div className="ledger-sections">
+                    <div className="timing-bar" aria-label="Evidence timing">
+                      <span>Task ID: {taskEvidence.id}</span>
+                      <span>Started: {taskEvidence.startedAt}</span>
+                      <span>Completed: {taskEvidence.completedAt}</span>
+                      <span>Duration: {taskEvidence.durationMs ?? 0}ms</span>
+                    </div>
+
+                    <div
+                      className="ledger-block"
+                      aria-label="Verification gate results"
+                    >
+                      <span className="eyebrow">
+                        TEST & GATE RESULTS ({taskEvidence.checks.length})
+                      </span>
+                      <div className="evidence-list">
+                        {taskEvidence.checks.map((check) => (
+                          <div key={check.label}>
+                            <span className={stateBadgeClass(check.state)}>
+                              {check.state}
+                            </span>
+                            <strong>{check.label}</strong>
+                            <small>{check.detail}</small>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="ledger-block" aria-label="Git evidence">
+                      <span className="eyebrow">GIT STATE</span>
+                      <div className="stage-row">
+                        <span
+                          className={stateBadgeClass(
+                            taskEvidence.gitState?.gitAvailable
+                              ? "PASS"
+                              : "NOT VERIFIED",
+                          )}
+                        >
+                          {taskEvidence.gitState?.gitAvailable
+                            ? "PASS"
+                            : "NOT VERIFIED"}
+                        </span>
+                        <div>
+                          <strong>
+                            {taskEvidence.gitState?.gitAvailable
+                              ? `Branch: ${taskEvidence.gitState.branch ?? "detached HEAD"} · ${taskEvidence.gitState.dirty ? "Dirty (uncommitted changes present)" : "Clean"}`
+                              : "Git repository not detected"}
+                          </strong>
+                          <small>
+                            {(taskEvidence.gitState?.porcelainLines ?? [])
+                              .length > 0
+                              ? taskEvidence.gitState!.porcelainLines.join(
+                                  " | ",
+                                )
+                              : "No uncommitted porcelain entries"}
+                          </small>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      className="ledger-block"
+                      aria-label="Executed commands"
+                    >
+                      <span className="eyebrow">
+                        EXECUTED COMMANDS (
+                        {(taskEvidence.commands ?? []).length})
+                      </span>
+                      {(taskEvidence.commands ?? []).length === 0 ? (
+                        <small className="muted">
+                          No commands executed for this task.
+                        </small>
+                      ) : (
+                        <div className="stages-grid">
+                          {(taskEvidence.commands ?? []).map((cmd) => (
+                            <div className="command-evidence-card" key={cmd.actionId}>
+                              <div className="stage-row">
+                                <span className={stateBadgeClass(cmd.state)}>
+                                  {cmd.state}
+                                </span>
+                                <div>
+                                  <strong>
+                                    {cmd.executable} {cmd.args.join(" ")}
+                                  </strong>
+                                  <small>
+                                    Exit code: {cmd.exitCode ?? "null"} ·{" "}
+                                    {cmd.durationMs}ms · cwd: {cmd.cwd}
+                                  </small>
+                                </div>
+                              </div>
+                              {(cmd.stdout || cmd.stderr) && (
+                                <pre className="proposal-diff">
+                                  {cmd.stdout}
+                                  {cmd.stderr}
+                                </pre>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="ledger-block" aria-label="Modified files">
+                      <span className="eyebrow">
+                        MODIFIED FILES (
+                        {(taskEvidence.modifiedFiles ?? []).length})
+                      </span>
+                      {(taskEvidence.modifiedFiles ?? []).length === 0 ? (
+                        <small className="muted">
+                          No workspace files were modified.
+                        </small>
+                      ) : (
+                        <div className="stages-grid">
+                          {(taskEvidence.modifiedFiles ?? []).map((file) => (
+                            <div
+                              className="stage-row"
+                              key={`${file.checkpointId}-${file.relativePath}`}
+                            >
+                              <span
+                                className={stateBadgeClass(
+                                  file.rolledBack ? "PASS" : "PASS",
+                                )}
+                              >
+                                {file.rolledBack ? "ROLLED BACK" : file.kind}
+                              </span>
+                              <div>
+                                <strong>{file.relativePath}</strong>
+                                <small>
+                                  Before SHA-256:{" "}
+                                  {file.beforeHash?.slice(0, 12) ?? "none"} →
+                                  After SHA-256:{" "}
+                                  {file.afterHash?.slice(0, 12) ?? "deleted"}
+                                </small>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div
+                      className="ledger-block"
+                      aria-label="Recovery checkpoints"
+                    >
+                      <span className="eyebrow">
+                        RECOVERY CHECKPOINTS (
+                        {(taskEvidence.checkpoints ?? []).length})
+                      </span>
+                      {(taskEvidence.checkpoints ?? []).length === 0 ? (
+                        <small className="muted">
+                          No file-write checkpoints created yet.
+                        </small>
+                      ) : (
+                        <div className="stages-grid">
+                          {(taskEvidence.checkpoints ?? []).map((chk) => (
+                            <div className="stage-row" key={chk.id}>
+                              <span
+                                className={stateBadgeClass(
+                                  chk.rollbackVerification,
+                                )}
+                              >
+                                {chk.rollbackVerification}
+                              </span>
+                              <div>
+                                <strong>
+                                  {chk.id} · {chk.relativePath} ({chk.kind})
+                                </strong>
+                                <small>
+                                  {chk.rollbackDetail ??
+                                    `Backup stored outside workspace · Pre-change hash: ${chk.beforeHash?.slice(0, 12) ?? "none"}`}
+                                </small>
+                              </div>
+                              <time>{chk.rolledBackAt ?? chk.createdAt}</time>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="muted">
+                    No evidence ledger active yet. Run a task or trigger the
+                    isolated safe-edit cycle to inspect verification checks,
+                    commands, modified files, and checkpoints.
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
+
+          {activeTab === "Knowledge" && (
+            <section className="ledger-screen" aria-label="Knowledge view">
+              <div className="ledger-card">
+                <div className="card-heading">
+                  <div>
+                    <span className="eyebrow">CANONICAL POLICY SET</span>
+                    <h2>Loaded rules & safety charter</h2>
+                  </div>
+                  <span className="approval-policy-badge">
+                    contextIsolation · sandbox · single-action approvals
+                  </span>
+                </div>
+                <div className="ledger-sections">
+                  <div className="ledger-block">
+                    <span className="eyebrow">LOADED WORKSPACE RULES</span>
+                    <div className="stages-grid">
+                      {(workspace?.rules ?? []).length === 0 ? (
+                        <small className="muted">
+                          No rule files loaded yet.
+                        </small>
+                      ) : (
+                        workspace!.rules.map((rule) => (
+                          <div className="stage-row" key={rule}>
+                            <span className={stateBadgeClass("PASS")}>
+                              PASS
+                            </span>
+                            <div>
+                              <strong>{rule}</strong>
+                              <small>
+                                Active rule file enforced inside{" "}
+                                {workspace!.path}
+                              </small>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
-              {update.state === "downloaded" ? (
-                <button
-                  type="button"
-                  onClick={() => void window.nasai?.installUpdate()}
-                >
-                  Restart & install
-                </button>
-              ) : (
-                <button type="button" onClick={checkUpdates}>
-                  Check
-                </button>
-              )}
-            </aside>
-          </div>
+            </section>
+          )}
+
           <footer>
             <span>Evidence-first agent shell</span>
             <span>Local-first · Human approval · Recoverable changes</span>

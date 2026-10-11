@@ -23,6 +23,12 @@ contextBridge.exposeInMainWorld("nasai", {
     ipcRenderer.invoke("proposal:decide", input),
   editProposal: (actionId: string, edits: ProposalEditInput) =>
     ipcRenderer.invoke("proposal:edit", actionId, edits),
+  executeProposal: (actionId: string) =>
+    ipcRenderer.invoke("proposal:execute", actionId),
+  rollbackLastCheckpoint: () => ipcRenderer.invoke("checkpoint:rollback"),
+  cancelCommand: (actionId: string) =>
+    ipcRenderer.invoke("command:cancel", actionId),
+  runSafeEditFixtureCycle: () => ipcRenderer.invoke("cycle:run-fixture"),
   onTaskStatus: (listener: (status: string) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, status: string) =>
       listener(status);

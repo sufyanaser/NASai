@@ -2,6 +2,8 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
 import { promises as fs } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { rollbackLastAction } from "./checkpoints.js";
+import { cancelActiveCommand } from "./commandRunner.js";
 import {
   createProposedAction,
   decideProposal,
@@ -13,8 +15,10 @@ import {
 } from "./proposals.js";
 import { registerUpdater } from "./updater.js";
 import {
+  executeApprovedAction,
   inspectWorkspace,
   runEvidenceTask,
+  runRepresentativeSafeEditCycle,
   type TaskEvidence,
 } from "./workspace.js";
 
@@ -28,6 +32,10 @@ function settingsPath() {
 
 function tasksPath() {
   return join(app.getPath("userData"), "tasks.json");
+}
+
+function checkpointsPath() {
+  return join(app.getPath("userData"), "checkpoints");
 }
 
 async function restoreWorkspace() {
@@ -62,19 +70,24 @@ async function saveTask(task: TaskEvidence) {
   );
 }
 
-async function syncProposalToLatestTask(updated: ProposedAction) {
+async function syncProposalToLatestTask(
+  updated: ProposedAction,
+): Promise<TaskEvidence | null> {
   activeProposals.set(updated.id, updated);
   const history = await readTaskHistory();
-  if (history.length === 0) return;
+  if (history.length === 0) return null;
   const latest = history[0];
   const proposals = latest.proposals ?? [];
   const exists = proposals.some((p) => p.id === updated.id);
   latest.proposals = exists
     ? proposals.map((p) => (p.id === updated.id ? updated : p))
     : [...proposals, updated];
-  await fs.writeFile(tasksPath(), JSON.stringify(history.slice(0, 50), null, 2));
+  await fs.writeFile(
+    tasksPath(),
+    JSON.stringify(history.slice(0, 50), null, 2),
+  );
+  return latest;
 }
-
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -219,7 +232,117 @@ app.whenReady().then(async () => {
       return updated;
     },
   );
+  ipcMain.handle(
+    "proposal:execute",
+    async (event, actionId: string): Promise<TaskEvidence> => {
+      const existing = activeProposals.get(actionId);
+      if (!existing) {
+        throw new Error(`Proposal "${actionId}" was not found.`);
+      }
+      event.sender.send("task:status", "working");
+      const { action, checkpoint, commandResult } = await executeApprovedAction(
+        existing,
+        checkpointsPath(),
+      );
+      activeProposals.set(action.id, action);
 
+      const history = await readTaskHistory();
+      if (history.length === 0) {
+        throw new Error("No active task record found.");
+      }
+      const latest = history[0];
+      latest.proposals = (latest.proposals ?? []).map((p) =>
+        p.id === action.id ? action : p,
+      );
+      if (commandResult) {
+        latest.commands = [...(latest.commands ?? []), commandResult];
+      }
+      if (checkpoint) {
+        latest.checkpoints = [checkpoint, ...(latest.checkpoints ?? [])];
+        latest.modifiedFiles = [
+          {
+            relativePath: checkpoint.relativePath,
+            kind: checkpoint.kind,
+            beforeHash: checkpoint.beforeHash,
+            afterHash: checkpoint.afterHash,
+            checkpointId: checkpoint.id,
+            rolledBack: false,
+          },
+          ...(latest.modifiedFiles ?? []),
+        ];
+      }
+      latest.stages = [
+        ...(latest.stages ?? []),
+        {
+          id: `exec-${action.id}`,
+          label: `Execute ${action.kind}`,
+          state: action.evidence?.state ?? "NOT VERIFIED",
+          detail: action.evidence?.summary ?? action.target,
+          timestamp: new Date().toISOString(),
+        },
+      ];
+      await fs.writeFile(
+        tasksPath(),
+        JSON.stringify(history.slice(0, 50), null, 2),
+      );
+      event.sender.send(
+        "task:status",
+        action.evidence?.state === "PASS" ? "success" : "attention",
+      );
+      return latest;
+    },
+  );
+  ipcMain.handle("checkpoint:rollback", async (event): Promise<TaskEvidence> => {
+    const { checkpoint, verified, detail } = await rollbackLastAction(
+      checkpointsPath(),
+      selectedWorkspace ?? undefined,
+    );
+    const history = await readTaskHistory();
+    if (history.length === 0) {
+      throw new Error("No task history available to update rollback evidence.");
+    }
+    const latest = history[0];
+    latest.checkpoints = (latest.checkpoints ?? []).map((chk) =>
+      chk.id === checkpoint.id ? checkpoint : chk,
+    );
+    latest.modifiedFiles = (latest.modifiedFiles ?? []).map((file) =>
+      file.checkpointId === checkpoint.id
+        ? { ...file, rolledBack: verified }
+        : file,
+    );
+    latest.proposals = (latest.proposals ?? []).map((p) =>
+      p.id === checkpoint.actionId ? { ...p, status: "rolled_back" } : p,
+    );
+    latest.stages = [
+      ...(latest.stages ?? []),
+      {
+        id: `rollback-${checkpoint.id}`,
+        label: `Rollback ${checkpoint.relativePath}`,
+        state: verified ? "PASS" : "FAIL",
+        detail,
+        timestamp: new Date().toISOString(),
+      },
+    ];
+    await fs.writeFile(
+      tasksPath(),
+      JSON.stringify(history.slice(0, 50), null, 2),
+    );
+    event.sender.send("task:status", verified ? "success" : "attention");
+    return latest;
+  });
+  ipcMain.handle("command:cancel", (_event, actionId: string) =>
+    cancelActiveCommand(actionId),
+  );
+  ipcMain.handle("cycle:run-fixture", async (event): Promise<TaskEvidence> => {
+    event.sender.send("task:status", "working");
+    const report = await runRepresentativeSafeEditCycle();
+    await saveTask(report.taskEvidence);
+    event.sender.send(
+      "task:status",
+      report.taskEvidence.status === "PASS" ? "success" : "attention",
+    );
+    return report.taskEvidence;
+  });
 
   const window = createWindow();
   registerUpdater(window);

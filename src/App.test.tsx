@@ -205,5 +205,140 @@ describe("App shell", () => {
     );
     expect(await screen.findByText("APPROVED")).toBeVisible();
   });
+
+  it("renders Tasks and Evidence screens with stages, commands, modified files, Git state, checkpoints, timing, and rollback", async () => {
+    const richEvidence: TaskEvidence = {
+      ...evidence,
+      durationMs: 142,
+      checks: [
+        {
+          label: "Workspace scope",
+          state: "PASS",
+          detail: workspace.path,
+        },
+        {
+          label: "Verification gate",
+          state: "PASS",
+          detail: "node verify.mjs exited 0",
+        },
+      ],
+      stages: [
+        {
+          id: "discover",
+          label: "1. Discover workspace",
+          state: "PASS",
+          detail: "42 files inspected",
+          timestamp: "2026-10-11T00:00:00.000Z",
+        },
+        {
+          id: "verify",
+          label: "2. Verification gate",
+          state: "PASS",
+          detail: "VERIFY_MATH_PASS",
+          timestamp: "2026-10-11T00:00:01.000Z",
+        },
+      ],
+      commands: [
+        {
+          actionId: "prop-cmd-1",
+          executable: "node",
+          args: ["verify.mjs"],
+          cwd: workspace.path,
+          exitCode: 0,
+          stdout: "VERIFY_MATH_PASS\n",
+          stderr: "",
+          durationMs: 38,
+          timedOut: false,
+          cancelled: false,
+          state: "PASS",
+          summary: "node verify.mjs succeeded",
+        },
+      ],
+      modifiedFiles: [
+        {
+          relativePath: "src/math.mjs",
+          kind: "edit_file",
+          beforeHash: "111111111111aaaa",
+          afterHash: "222222222222bbbb",
+          checkpointId: "chk-abc123",
+          rolledBack: false,
+        },
+      ],
+      checkpoints: [
+        {
+          id: "chk-abc123",
+          actionId: "prop-edit-1",
+          kind: "edit_file",
+          workspacePath: workspace.path,
+          relativePath: "src/math.mjs",
+          targetFilePath: "H:\\Projects\\NASai\\src\\math.mjs",
+          existedBefore: true,
+          beforeHash: "111111111111aaaa",
+          afterHash: "222222222222bbbb",
+          backupFilePath: "C:\\Users\\sufya\\AppData\\Roaming\\nasai\\checkpoints\\chk-abc123.bak",
+          gitBefore: {
+            gitAvailable: true,
+            branch: "develop",
+            dirty: true,
+            porcelainLines: [" M src/user-uncommitted.ts"],
+            capturedAt: "2026-10-11T00:00:00.000Z",
+          },
+          createdAt: "2026-10-11T00:00:00.000Z",
+          rolledBackAt: null,
+          rollbackVerification: "NOT VERIFIED",
+          rollbackDetail: null,
+        },
+      ],
+      gitState: {
+        gitAvailable: true,
+        branch: "develop",
+        dirty: true,
+        porcelainLines: [" M src/user-uncommitted.ts"],
+        capturedAt: "2026-10-11T00:00:01.000Z",
+      },
+    };
+
+    window.nasai!.listTasks = vi.fn().mockResolvedValue([richEvidence]);
+    window.nasai!.rollbackLastCheckpoint = vi.fn().mockResolvedValue({
+      ...richEvidence,
+      checkpoints: [
+        {
+          ...richEvidence.checkpoints![0],
+          rolledBackAt: "2026-10-11T00:00:02.000Z",
+          rollbackVerification: "PASS",
+          rollbackDetail: "Restored src/math.mjs and verified SHA-256.",
+        },
+      ],
+    });
+
+    render(<App />);
+    await screen.findByText("NASai · 42 files inspected");
+
+    fireEvent.click(screen.getByRole("button", { name: /Tasks/ }));
+    expect(
+      await screen.findByRole("region", { name: "Tasks view" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("1. Discover workspace")).toBeVisible();
+    expect(screen.getByText("Duration: 142ms")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: /Evidence/ }));
+    expect(
+      await screen.findByRole("region", { name: "Evidence view" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("node verify.mjs")).toBeVisible();
+    expect(screen.getByText("src/math.mjs")).toBeVisible();
+    expect(screen.getByText(/M src\/user-uncommitted\.ts/)).toBeVisible();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Rollback last action" }),
+    );
+    await waitFor(() =>
+      expect(window.nasai?.rollbackLastCheckpoint).toHaveBeenCalledTimes(1),
+    );
+    expect(
+      await screen.findByText("Restored src/math.mjs and verified SHA-256."),
+    ).toBeVisible();
+  });
 });
+
 

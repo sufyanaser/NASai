@@ -117,12 +117,71 @@ interface WorkspaceSnapshot {
   inspectedAt: string;
 }
 
+interface GitStatusSnapshot {
+  gitAvailable: boolean;
+  branch: string | null;
+  dirty: boolean | null;
+  porcelainLines: string[];
+  capturedAt: string;
+}
+
+interface FileCheckpoint {
+  id: string;
+  actionId: string;
+  kind: "create_file" | "edit_file" | "delete_file";
+  workspacePath: string;
+  relativePath: string;
+  targetFilePath: string;
+  existedBefore: boolean;
+  beforeHash: string | null;
+  afterHash: string | null;
+  backupFilePath: string | null;
+  gitBefore: GitStatusSnapshot;
+  createdAt: string;
+  rolledBackAt: string | null;
+  rollbackVerification: GateState;
+  rollbackDetail: string | null;
+}
+
+interface CommandRunResult {
+  actionId: string;
+  executable: string;
+  args: string[];
+  cwd: string;
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  durationMs: number;
+  timedOut: boolean;
+  cancelled: boolean;
+  state: GateState;
+  summary: string;
+}
+
+interface TaskStageRecord {
+  id: string;
+  label: string;
+  state: GateState;
+  detail: string;
+  timestamp: string;
+}
+
+interface ModifiedFileRecord {
+  relativePath: string;
+  kind: "create_file" | "edit_file" | "delete_file";
+  beforeHash: string | null;
+  afterHash: string | null;
+  checkpointId: string | null;
+  rolledBack: boolean;
+}
+
 interface TaskEvidence {
   id: string;
   prompt: string;
   workspace: string;
   startedAt: string;
   completedAt: string;
+  durationMs?: number;
   status: GateState;
   summary: string;
   checks: Array<{
@@ -130,7 +189,12 @@ interface TaskEvidence {
     state: GateState;
     detail: string;
   }>;
+  stages?: TaskStageRecord[];
   proposals?: ProposedAction[];
+  commands?: CommandRunResult[];
+  modifiedFiles?: ModifiedFileRecord[];
+  checkpoints?: FileCheckpoint[];
+  gitState?: GitStatusSnapshot;
 }
 
 interface Window {
@@ -155,6 +219,10 @@ interface Window {
       actionId: string,
       edits: ProposalEditInput,
     ) => Promise<ProposedAction>;
+    executeProposal?: (actionId: string) => Promise<TaskEvidence>;
+    rollbackLastCheckpoint?: () => Promise<TaskEvidence>;
+    cancelCommand?: (actionId: string) => Promise<boolean>;
+    runSafeEditFixtureCycle?: () => Promise<TaskEvidence>;
     onTaskStatus: (
       listener: (
         status:

@@ -105,4 +105,105 @@ describe("App shell", () => {
       screen.getByText("I found something that needs your attention."),
     ).toBeVisible();
   });
+
+  it("displays proposed actions, waits in attention state, and supports single-action approve, reject, and edit", async () => {
+    const pendingProposal: ProposedAction = {
+      id: "prop-123456789abc",
+      kind: "edit_file",
+      description: "Update configuration in src/config.ts",
+      reason: "Enable strict verification gate",
+      target: "src/config.ts",
+      workspacePath: workspace.path,
+      relativePath: "src/config.ts",
+      proposedContent: 'export const strict = true;\n',
+      riskLevel: "medium",
+      requiresApproval: true,
+      sensitiveReason: "Modifying an existing workspace file writes to disk",
+      preview:
+        "--- a/src/config.ts\n+++ b/src/config.ts\n@@ -1,1 +1,1 @@\n-export const strict = false;\n+export const strict = true;",
+      status: "pending_approval",
+      evidence: null,
+      recovery: {
+        strategy: "file_checkpoint",
+        checkpointId: null,
+        restorable: true,
+        description: "Checkpoint backs up src/config.ts before writing.",
+      },
+      createdAt: "2026-10-11T00:00:00.000Z",
+      updatedAt: "2026-10-11T00:00:00.000Z",
+    };
+
+    window.nasai!.runTask = vi.fn().mockResolvedValue({
+      ...evidence,
+      proposals: [pendingProposal],
+    });
+    window.nasai!.editProposal = vi.fn().mockImplementation(
+      async (_id: string, edits: ProposalEditInput) => ({
+        ...pendingProposal,
+        description: edits.description ?? pendingProposal.description,
+        proposedContent:
+          edits.proposedContent ?? pendingProposal.proposedContent,
+        preview:
+          "--- a/src/config.ts\n+++ b/src/config.ts\n+export const strict = true; // verified",
+      }),
+    );
+    window.nasai!.decideProposal = vi.fn().mockImplementation(
+      async (input: ApprovalDecisionInput) => ({
+        ...pendingProposal,
+        status: input.decision === "approve" ? "approved" : "rejected",
+      }),
+    );
+
+    render(<App />);
+    await screen.findByText("NASai · 42 files inspected");
+    fireEvent.change(screen.getByLabelText("Task description"), {
+      target: { value: "Propose strict config update" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Start task ↗" }));
+
+    expect(
+      await screen.findByRole("region", { name: "Proposed actions" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Single-action approval only · Blanket approvals disabled",
+      ),
+    ).toBeVisible();
+    expect(screen.getByText("▲ RISK: MEDIUM")).toBeVisible();
+    expect(
+      screen.getByRole("button", {
+        name: /NASai status: Needs you\. Review and approve each sensitive action individually/,
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit proposal" }));
+    fireEvent.change(screen.getByLabelText("Proposal description"), {
+      target: { value: "Update config with verified comment" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save proposal edits" }),
+    );
+
+    await waitFor(() =>
+      expect(window.nasai?.editProposal).toHaveBeenCalledWith(
+        "prop-123456789abc",
+        expect.objectContaining({
+          description: "Update config with verified comment",
+        }),
+      ),
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Approve single action" }),
+    );
+    await waitFor(() =>
+      expect(window.nasai?.decideProposal).toHaveBeenCalledWith({
+        actionId: "prop-123456789abc",
+        decision: "approve",
+        scope: "single_action",
+      }),
+    );
+    expect(await screen.findByText("APPROVED")).toBeVisible();
+  });
 });
+

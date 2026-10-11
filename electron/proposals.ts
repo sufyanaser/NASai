@@ -482,3 +482,97 @@ export async function proposeActionsForTask(
   return proposals;
 }
 
+export interface ApprovalDecisionInput {
+  actionId: string;
+  decision: "approve" | "reject";
+  scope?: "single_action" | "blanket" | "session";
+}
+
+export function decideProposal(
+  proposal: ProposedAction,
+  input: ApprovalDecisionInput,
+): ProposedAction {
+  if (input.scope && input.scope !== "single_action") {
+    throw new Error(
+      "Blanket or session-wide approvals are forbidden by NASai policy. Approve a single action only.",
+    );
+  }
+  if (!input.actionId || input.actionId !== proposal.id) {
+    throw new Error(
+      "Approval must target a single explicit proposal ID.",
+    );
+  }
+  if (proposal.status !== "pending_approval") {
+    throw new Error(
+      `Proposal ${proposal.id} cannot be decided from status "${proposal.status}".`,
+    );
+  }
+
+  const now = new Date().toISOString();
+  if (input.decision === "reject") {
+    return {
+      ...proposal,
+      status: "rejected",
+      updatedAt: now,
+      evidence: {
+        state: "NOT VERIFIED",
+        summary: "Action rejected by user before execution.",
+        detail: `User rejected ${proposal.kind} on ${proposal.target}; no changes were made.`,
+        recordedAt: now,
+      },
+    };
+  }
+
+  return {
+    ...proposal,
+    status: "approved",
+    updatedAt: now,
+  };
+}
+
+export interface ProposalEditInput {
+  description?: string;
+  reason?: string;
+  proposedContent?: string;
+  commandArgs?: string[];
+}
+
+export async function editProposedAction(
+  proposal: ProposedAction,
+  edits: ProposalEditInput,
+): Promise<ProposedAction> {
+  if (
+    proposal.status === "executed" ||
+    proposal.status === "rolled_back"
+  ) {
+    throw new Error(
+      `Cannot edit proposal ${proposal.id} after execution.`,
+    );
+  }
+
+  const updated = await createProposedAction(proposal.workspacePath, {
+    id: proposal.id,
+    kind: proposal.kind,
+    description: edits.description ?? proposal.description,
+    reason: edits.reason ?? proposal.reason,
+    targetPath: proposal.relativePath,
+    proposedContent:
+      edits.proposedContent !== undefined
+        ? edits.proposedContent
+        : proposal.proposedContent,
+    command: proposal.command
+      ? {
+          executable: proposal.command.executable,
+          args: edits.commandArgs ?? proposal.command.args,
+        }
+      : undefined,
+  });
+
+  return {
+    ...updated,
+    createdAt: proposal.createdAt,
+    status: "pending_approval",
+  };
+}
+
+

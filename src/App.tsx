@@ -72,6 +72,18 @@ export function App() {
   const [lastTask, setLastTask] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceSnapshot | null>(null);
   const [taskEvidence, setTaskEvidence] = useState<TaskEvidence | null>(null);
+  const [proposals, setProposals] = useState<ProposedAction[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<{
+    description: string;
+    reason: string;
+    proposedContent: string;
+  }>({ description: "", reason: "", proposedContent: "" });
+
+  const pendingSensitiveCount = proposals.filter(
+    (p) => p.requiresApproval && p.status === "pending_approval",
+  ).length;
+
   const reaction =
     !workspace && agentState === "idle"
       ? {
@@ -79,7 +91,14 @@ export function App() {
           label: "Waiting",
           message: "Choose a workspace to begin.",
         }
-      : reactions[agentState];
+      : pendingSensitiveCount > 0 && agentState === "attention"
+        ? {
+            ...reactions.attention,
+            label: "Needs you",
+            message:
+              "Review and approve each sensitive action individually before execution.",
+          }
+        : reactions[agentState];
   const isRunning = ["thinking", "working", "verifying"].includes(agentState);
 
   useEffect(() => {
@@ -104,12 +123,68 @@ export function App() {
     try {
       setAgentState("thinking");
       const evidence = await window.nasai.runTask(task);
+      const nextProposals = evidence.proposals ?? [];
       setTaskEvidence(evidence);
+      setProposals(nextProposals);
       setLastTask(evidence.prompt);
-      setAgentState(evidence.status === "PASS" ? "success" : "attention");
+      const hasPendingApproval = nextProposals.some(
+        (p) => p.requiresApproval && p.status === "pending_approval",
+      );
+      setAgentState(
+        hasPendingApproval
+          ? "attention"
+          : evidence.status === "PASS"
+            ? "success"
+            : "attention",
+      );
     } catch {
       setAgentState("attention");
     }
+  };
+
+  const handleDecision = async (
+    actionId: string,
+    decision: "approve" | "reject",
+  ) => {
+    if (!window.nasai?.decideProposal) return;
+    const updated = await window.nasai.decideProposal({
+      actionId,
+      decision,
+      scope: "single_action",
+    });
+    const next = proposals.map((p) => (p.id === actionId ? updated : p));
+    setProposals(next);
+    const stillWaiting = next.some(
+      (p) => p.requiresApproval && p.status === "pending_approval",
+    );
+    setAgentState(
+      stillWaiting
+        ? "attention"
+        : decision === "approve"
+          ? "success"
+          : "idle",
+    );
+  };
+
+  const startEditingProposal = (proposal: ProposedAction) => {
+    setEditingId(proposal.id);
+    setEditDraft({
+      description: proposal.description,
+      reason: proposal.reason,
+      proposedContent: proposal.proposedContent ?? "",
+    });
+  };
+
+  const saveProposalEdit = async (actionId: string) => {
+    if (!window.nasai?.editProposal) return;
+    const updated = await window.nasai.editProposal(actionId, {
+      description: editDraft.description,
+      reason: editDraft.reason,
+      proposedContent: editDraft.proposedContent,
+    });
+    setProposals((prev) => prev.map((p) => (p.id === actionId ? updated : p)));
+    setEditingId(null);
+    setAgentState("attention");
   };
 
   const selectWorkspace = async () => {
@@ -118,6 +193,8 @@ export function App() {
     setWorkspace(selected);
     setAgentState("idle");
     setTaskEvidence(null);
+    setProposals([]);
+    setEditingId(null);
     setLastTask(null);
   };
 
@@ -382,6 +459,170 @@ export function App() {
                     </div>
                   ))}
                 </div>
+              )}
+              {proposals.length > 0 && (
+                <section
+                  className="proposals-section"
+                  aria-label="Proposed actions"
+                >
+                  <div className="proposals-header">
+                    <div>
+                      <span className="eyebrow">APPROVAL GATE</span>
+                      <h4>
+                        Proposed actions ({pendingSensitiveCount} awaiting
+                        approval)
+                      </h4>
+                    </div>
+                    <span className="approval-policy-badge">
+                      Single-action approval only · Blanket approvals disabled
+                    </span>
+                  </div>
+                  <div className="proposals-list">
+                    {proposals.map((proposal) => (
+                      <article
+                        className={`proposal-card risk-${proposal.riskLevel}`}
+                        key={proposal.id}
+                      >
+                        <div className="proposal-meta">
+                          <span
+                            className={`risk-badge risk-${proposal.riskLevel}`}
+                          >
+                            ▲ RISK: {proposal.riskLevel.toUpperCase()}
+                          </span>
+                          <span className="proposal-kind">{proposal.kind}</span>
+                          <span
+                            className={`proposal-status status-${proposal.status}`}
+                          >
+                            {proposal.status.replaceAll("_", " ").toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="proposal-body">
+                          <strong>{proposal.description}</strong>
+                          <p className="proposal-reason">{proposal.reason}</p>
+                          <div className="proposal-target">
+                            <span>Affected target:</span>{" "}
+                            <code>{proposal.target}</code>
+                          </div>
+                          {proposal.sensitiveReason && (
+                            <small className="sensitive-reason">
+                              Sensitive action: {proposal.sensitiveReason}
+                            </small>
+                          )}
+                        </div>
+                        {editingId === proposal.id ? (
+                          <div
+                            className="proposal-editor"
+                            aria-label="Edit proposal form"
+                          >
+                            <label>
+                              Description
+                              <input
+                                type="text"
+                                aria-label="Proposal description"
+                                value={editDraft.description}
+                                onChange={(e) =>
+                                  setEditDraft((prev) => ({
+                                    ...prev,
+                                    description: e.target.value,
+                                  }))
+                                }
+                              />
+                            </label>
+                            <label>
+                              Reason
+                              <input
+                                type="text"
+                                aria-label="Proposal reason"
+                                value={editDraft.reason}
+                                onChange={(e) =>
+                                  setEditDraft((prev) => ({
+                                    ...prev,
+                                    reason: e.target.value,
+                                  }))
+                                }
+                              />
+                            </label>
+                            {(proposal.kind === "create_file" ||
+                              proposal.kind === "edit_file") && (
+                              <label>
+                                Proposed content
+                                <textarea
+                                  aria-label="Proposed content"
+                                  value={editDraft.proposedContent}
+                                  onChange={(e) =>
+                                    setEditDraft((prev) => ({
+                                      ...prev,
+                                      proposedContent: e.target.value,
+                                    }))
+                                  }
+                                />
+                              </label>
+                            )}
+                            <div className="proposal-actions">
+                              <button
+                                className="approve-button"
+                                type="button"
+                                onClick={() =>
+                                  void saveProposalEdit(proposal.id)
+                                }
+                              >
+                                Save proposal edits
+                              </button>
+                              <button
+                                className="ghost-button"
+                                type="button"
+                                onClick={() => setEditingId(null)}
+                              >
+                                Cancel edit
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <pre
+                              className="proposal-diff"
+                              aria-label={`Preview for ${proposal.target}`}
+                            >
+                              {proposal.preview}
+                            </pre>
+                            <small className="proposal-recovery">
+                              Recovery: {proposal.recovery.description}
+                            </small>
+                            {proposal.status === "pending_approval" && (
+                              <div className="proposal-actions">
+                                <button
+                                  className="approve-button"
+                                  type="button"
+                                  onClick={() =>
+                                    void handleDecision(proposal.id, "approve")
+                                  }
+                                >
+                                  Approve single action
+                                </button>
+                                <button
+                                  className="ghost-button"
+                                  type="button"
+                                  onClick={() => startEditingProposal(proposal)}
+                                >
+                                  Edit proposal
+                                </button>
+                                <button
+                                  className="reject-button"
+                                  type="button"
+                                  onClick={() =>
+                                    void handleDecision(proposal.id, "reject")
+                                  }
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                </section>
               )}
             </section>
 

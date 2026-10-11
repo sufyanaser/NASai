@@ -2,6 +2,15 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
 import { promises as fs } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  createProposedAction,
+  decideProposal,
+  editProposedAction,
+  type ApprovalDecisionInput,
+  type ProposalEditInput,
+  type ProposalInput,
+  type ProposedAction,
+} from "./proposals.js";
 import { registerUpdater } from "./updater.js";
 import {
   inspectWorkspace,
@@ -11,6 +20,7 @@ import {
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 let selectedWorkspace: string | null = null;
+const activeProposals = new Map<string, ProposedAction>();
 
 function settingsPath() {
   return join(app.getPath("userData"), "workspace.json");
@@ -31,20 +41,40 @@ async function restoreWorkspace() {
   }
 }
 
-async function saveTask(task: TaskEvidence) {
-  let history: TaskEvidence[] = [];
+async function readTaskHistory(): Promise<TaskEvidence[]> {
   try {
-    history = JSON.parse(
-      await fs.readFile(tasksPath(), "utf8"),
-    ) as TaskEvidence[];
+    return JSON.parse(await fs.readFile(tasksPath(), "utf8")) as TaskEvidence[];
   } catch {
-    // First run starts with an empty local history.
+    return [];
+  }
+}
+
+async function saveTask(task: TaskEvidence) {
+  const history = (await readTaskHistory()).filter(
+    (entry) => entry.id !== task.id,
+  );
+  for (const proposal of task.proposals ?? []) {
+    activeProposals.set(proposal.id, proposal);
   }
   await fs.writeFile(
     tasksPath(),
     JSON.stringify([task, ...history].slice(0, 50), null, 2),
   );
 }
+
+async function syncProposalToLatestTask(updated: ProposedAction) {
+  activeProposals.set(updated.id, updated);
+  const history = await readTaskHistory();
+  if (history.length === 0) return;
+  const latest = history[0];
+  const proposals = latest.proposals ?? [];
+  const exists = proposals.some((p) => p.id === updated.id);
+  latest.proposals = exists
+    ? proposals.map((p) => (p.id === updated.id ? updated : p))
+    : [...proposals, updated];
+  await fs.writeFile(tasksPath(), JSON.stringify(history.slice(0, 50), null, 2));
+}
+
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -115,6 +145,7 @@ app.whenReady().then(async () => {
     );
     return inspectWorkspace(selectedWorkspace);
   });
+  ipcMain.handle("task:list", async () => readTaskHistory());
   ipcMain.handle("task:run", async (event, prompt: string) => {
     if (!selectedWorkspace) throw new Error("Choose a workspace first.");
     event.sender.send("task:status", "thinking");
@@ -123,12 +154,72 @@ app.whenReady().then(async () => {
     event.sender.send("task:status", "verifying");
     const task = await runEvidenceTask(prompt, snapshot.path);
     await saveTask(task);
+    const waitingForApproval = (task.proposals ?? []).some(
+      (p) => p.requiresApproval && p.status === "pending_approval",
+    );
     event.sender.send(
       "task:status",
-      task.status === "PASS" ? "success" : "attention",
+      waitingForApproval
+        ? "attention"
+        : task.status === "PASS"
+          ? "success"
+          : "attention",
     );
     return task;
   });
+  ipcMain.handle(
+    "proposal:create",
+    async (event, input: ProposalInput): Promise<ProposedAction> => {
+      if (!selectedWorkspace) throw new Error("Choose a workspace first.");
+      const proposal = await createProposedAction(selectedWorkspace, input);
+      await syncProposalToLatestTask(proposal);
+      if (proposal.requiresApproval) {
+        event.sender.send("task:status", "attention");
+      }
+      return proposal;
+    },
+  );
+  ipcMain.handle(
+    "proposal:decide",
+    async (event, input: ApprovalDecisionInput): Promise<ProposedAction> => {
+      const existing = activeProposals.get(input.actionId);
+      if (!existing) {
+        throw new Error(`Proposal "${input.actionId}" was not found.`);
+      }
+      const decided = decideProposal(existing, input);
+      await syncProposalToLatestTask(decided);
+      const stillPending = Array.from(activeProposals.values()).some(
+        (p) => p.requiresApproval && p.status === "pending_approval",
+      );
+      event.sender.send(
+        "task:status",
+        stillPending
+          ? "attention"
+          : decided.status === "approved"
+            ? "success"
+            : "idle",
+      );
+      return decided;
+    },
+  );
+  ipcMain.handle(
+    "proposal:edit",
+    async (
+      event,
+      actionId: string,
+      edits: ProposalEditInput,
+    ): Promise<ProposedAction> => {
+      const existing = activeProposals.get(actionId);
+      if (!existing) {
+        throw new Error(`Proposal "${actionId}" was not found.`);
+      }
+      const updated = await editProposedAction(existing, edits);
+      await syncProposalToLatestTask(updated);
+      event.sender.send("task:status", "attention");
+      return updated;
+    },
+  );
+
 
   const window = createWindow();
   registerUpdater(window);

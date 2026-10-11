@@ -3,6 +3,10 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
+import {
+  proposeActionsForTask,
+  type ProposedAction,
+} from "./proposals.js";
 
 const execFileAsync = promisify(execFile);
 const ignoredDirectories = new Set([
@@ -36,6 +40,7 @@ export interface TaskEvidence {
   status: GateState;
   summary: string;
   checks: Array<{ label: string; state: GateState; detail: string }>;
+  proposals?: ProposedAction[];
 }
 
 async function countFiles(root: string, limit = 5_000): Promise<number> {
@@ -158,6 +163,12 @@ export async function runEvidenceTask(
   ];
   const failed = checks.some((check) => check.state === "FAIL");
   const incomplete = checks.some((check) => check.state === "NOT VERIFIED");
+  const proposals = await proposeActionsForTask(
+    snapshot.path,
+    normalizedPrompt,
+    snapshot.rules,
+    snapshot.gitAvailable,
+  );
 
   return {
     id: randomUUID(),
@@ -168,5 +179,7 @@ export async function runEvidenceTask(
     status: failed ? "FAIL" : incomplete ? "NOT VERIFIED" : "PASS",
     summary: `Inspected ${snapshot.fileCount} files and captured ${checks.length} evidence checks. No workspace files were changed.`,
     checks,
+    proposals,
   };
 }
+

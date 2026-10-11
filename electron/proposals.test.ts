@@ -5,7 +5,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  classifyActionRisk,
   createProposedAction,
+  decideProposal,
+  editProposedAction,
   proposeActionsForTask,
   resolveWorkspaceTarget,
 } from "./proposals.js";
@@ -24,7 +27,7 @@ afterEach(async () => {
   tempWorkspace = null;
 });
 
-describe("Stage 1: ProposedAction engine", () => {
+describe("Stage 1 & 2: ProposedAction engine and Approval gates", () => {
   it("represents read, create, edit, delete, command, and git proposals without modifying files", async () => {
     tempWorkspace = await fs.mkdtemp(join(tmpdir(), "nasai-proposals-"));
     const existingFile = join(tempWorkspace, "src", "config.ts");
@@ -133,4 +136,108 @@ describe("Stage 1: ProposedAction engine", () => {
       }),
     ).rejects.toThrow(/escapes the active workspace scope/);
   });
+
+  it("classifies delete, write, git, package install, network, and publish as sensitive actions requiring approval", () => {
+    expect(classifyActionRisk("delete_file")).toMatchObject({
+      riskLevel: "high",
+      requiresApproval: true,
+    });
+    expect(classifyActionRisk("create_file")).toMatchObject({
+      riskLevel: "medium",
+      requiresApproval: true,
+    });
+    expect(classifyActionRisk("edit_file")).toMatchObject({
+      riskLevel: "medium",
+      requiresApproval: true,
+    });
+    expect(
+      classifyActionRisk("git_operation", {
+        executable: "git",
+        args: ["status"],
+      }),
+    ).toMatchObject({
+      riskLevel: "medium",
+      requiresApproval: true,
+    });
+    expect(
+      classifyActionRisk("run_command", {
+        executable: "npm",
+        args: ["install", "left-pad"],
+      }),
+    ).toMatchObject({
+      riskLevel: "high",
+      requiresApproval: true,
+    });
+    expect(
+      classifyActionRisk("run_command", {
+        executable: "curl",
+        args: ["https://example.com"],
+      }),
+    ).toMatchObject({
+      riskLevel: "high",
+      requiresApproval: true,
+    });
+    expect(
+      classifyActionRisk("run_command", {
+        executable: "npm",
+        args: ["publish"],
+      }),
+    ).toMatchObject({
+      riskLevel: "critical",
+      requiresApproval: true,
+    });
+  });
+
+  it("enforces single-action approval, blocks blanket approvals, and supports editing proposals before approval", async () => {
+    tempWorkspace = await fs.mkdtemp(join(tmpdir(), "nasai-approvals-"));
+    const targetFile = join(tempWorkspace, "notes.txt");
+    await fs.writeFile(targetFile, "line 1\n", "utf8");
+
+    const proposal = await createProposedAction(tempWorkspace, {
+      kind: "edit_file",
+      description: "Update notes.txt",
+      reason: "Add verification note",
+      targetPath: "notes.txt",
+      proposedContent: "line 1\nline 2\n",
+    });
+
+    expect(() =>
+      decideProposal(proposal, {
+        actionId: proposal.id,
+        decision: "approve",
+        scope: "blanket",
+      }),
+    ).toThrow(/Blanket or session-wide approvals are forbidden/);
+
+    expect(() =>
+      decideProposal(proposal, {
+        actionId: "wrong-id",
+        decision: "approve",
+      }),
+    ).toThrow(/Approval must target a single explicit proposal ID/);
+
+    const edited = await editProposedAction(proposal, {
+      description: "Update notes.txt with verified line",
+      proposedContent: "line 1\nverified line 2\n",
+    });
+    expect(edited.id).toBe(proposal.id);
+    expect(edited.status).toBe("pending_approval");
+    expect(edited.preview).toContain("+verified line 2");
+
+    const rejected = decideProposal(edited, {
+      actionId: edited.id,
+      decision: "reject",
+      scope: "single_action",
+    });
+    expect(rejected.status).toBe("rejected");
+    expect(rejected.evidence?.state).toBe("NOT VERIFIED");
+
+    const approved = decideProposal(edited, {
+      actionId: edited.id,
+      decision: "approve",
+      scope: "single_action",
+    });
+    expect(approved.status).toBe("approved");
+  });
 });
+

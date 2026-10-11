@@ -868,3 +868,194 @@ footer {
     animation: none !important;
   }
 }
+
+.proposals-section {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-border);
+}
+.proposals-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.proposals-header h4 {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.approval-policy-badge {
+  padding: 5px 8px;
+  border: 1px solid #2b5648;
+  border-radius: var(--radius-xs);
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  font-size: 9px;
+  font-weight: 600;
+}
+.proposals-list {
+  display: grid;
+  gap: 12px;
+}
+.proposal-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.proposal-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.risk-badge,
+.proposal-kind,
+.proposal-status {
+  padding: 3px 7px;
+  border-radius: var(--radius-xs);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.risk-badge.risk-low {
+  border: 1px solid #2b5648;
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+.risk-badge.risk-medium {
+  border: 1px solid #6b5224;
+  color: #f4cb7c;
+  background: #2f2412;
+}
+.risk-badge.risk-high,
+.risk-badge.risk-critical {
+  border: 1px solid #804049;
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+.proposal-kind {
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  background: var(--color-surface-raised);
+}
+.proposal-status {
+  margin-left: auto;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+.proposal-status.status-approved,
+.proposal-status.status-executed {
+  border-color: #2b5648;
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+.proposal-status.status-rejected,
+.proposal-status.status-failed {
+  border-color: #804049;
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+.proposal-body {
+  display: grid;
+  gap: 4px;
+}
+.proposal-body strong {
+  font-size: 13px;
+  color: var(--color-text);
+}
+.proposal-reason {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+.proposal-target {
+  font-size: 11px;
+  color: var(--color-text-subtle);
+}
+.proposal-target code {
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #d9e7e3;
+  background: #141b22;
+}
+.sensitive-reason,
+.proposal-recovery {
+  color: var(--color-text-subtle);
+  font-size: 10px;
+}
+.proposal-diff {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 170px;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: #cfe0dc;
+  background: #070a0e;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.proposal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.approve-button {
+  padding: 8px 13px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: #06110d;
+  background: var(--color-accent);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.approve-button:hover {
+  background: var(--color-accent-strong);
+}
+.reject-button {
+  padding: 8px 13px;
+  border: 1px solid #804049;
+  border-radius: var(--radius-sm);
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.reject-button:hover {
+  background: #472028;
+}
+.proposal-editor {
+  display: grid;
+  gap: 8px;
+}
+.proposal-editor label {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.proposal-editor input,
+.proposal-editor textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  background: #090d12;
+  font: inherit;
+  font-size: 11px;
+}
+.proposal-editor input:focus-visible,
+.proposal-editor textarea:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+

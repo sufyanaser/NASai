@@ -1,4 +1,9 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type {
+  ApprovalDecisionInput,
+  ProposalEditInput,
+  ProposalInput,
+} from "./proposals.js";
 import type { UpdateStatus } from "./updater.js";
 
 contextBridge.exposeInMainWorld("nasai", {
@@ -11,6 +16,13 @@ contextBridge.exposeInMainWorld("nasai", {
   getWorkspace: () => ipcRenderer.invoke("workspace:get"),
   selectWorkspace: () => ipcRenderer.invoke("workspace:select"),
   runTask: (prompt: string) => ipcRenderer.invoke("task:run", prompt),
+  listTasks: () => ipcRenderer.invoke("task:list"),
+  createProposal: (input: ProposalInput) =>
+    ipcRenderer.invoke("proposal:create", input),
+  decideProposal: (input: ApprovalDecisionInput) =>
+    ipcRenderer.invoke("proposal:decide", input),
+  editProposal: (actionId: string, edits: ProposalEditInput) =>
+    ipcRenderer.invoke("proposal:edit", actionId, edits),
   onTaskStatus: (listener: (status: string) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, status: string) =>
       listener(status);

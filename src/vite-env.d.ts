@@ -17,6 +17,95 @@ interface UpdateStatus {
   version?: string;
 }
 
+type GateState = "PASS" | "FAIL" | "NOT VERIFIED";
+
+type ActionKind =
+  | "read_file"
+  | "create_file"
+  | "edit_file"
+  | "delete_file"
+  | "run_command"
+  | "git_operation";
+
+type RiskLevel = "low" | "medium" | "high" | "critical";
+
+type ActionStatus =
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "executed"
+  | "failed"
+  | "rolled_back";
+
+interface CommandSpec {
+  executable: string;
+  args: string[];
+}
+
+interface ActionEvidence {
+  state: GateState;
+  summary: string;
+  detail: string;
+  beforeHash?: string | null;
+  afterHash?: string | null;
+  exitCode?: number | null;
+  stdout?: string;
+  stderr?: string;
+  durationMs?: number;
+  recordedAt: string;
+}
+
+interface RecoveryPlan {
+  strategy: "none" | "file_checkpoint" | "git_inspect_only";
+  checkpointId: string | null;
+  restorable: boolean;
+  description: string;
+}
+
+interface ProposedAction {
+  id: string;
+  kind: ActionKind;
+  description: string;
+  reason: string;
+  target: string;
+  workspacePath: string;
+  relativePath?: string;
+  proposedContent?: string;
+  command?: CommandSpec;
+  riskLevel: RiskLevel;
+  requiresApproval: boolean;
+  sensitiveReason: string | null;
+  preview: string;
+  status: ActionStatus;
+  evidence: ActionEvidence | null;
+  recovery: RecoveryPlan;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ProposalInput {
+  id?: string;
+  kind: ActionKind;
+  description: string;
+  reason: string;
+  targetPath?: string;
+  proposedContent?: string;
+  command?: CommandSpec;
+}
+
+interface ApprovalDecisionInput {
+  actionId: string;
+  decision: "approve" | "reject";
+  scope?: "single_action" | "blanket" | "session";
+}
+
+interface ProposalEditInput {
+  description?: string;
+  reason?: string;
+  proposedContent?: string;
+  commandArgs?: string[];
+}
+
 interface WorkspaceSnapshot {
   path: string;
   name: string;
@@ -34,13 +123,14 @@ interface TaskEvidence {
   workspace: string;
   startedAt: string;
   completedAt: string;
-  status: "PASS" | "FAIL" | "NOT VERIFIED";
+  status: GateState;
   summary: string;
   checks: Array<{
     label: string;
-    state: "PASS" | "FAIL" | "NOT VERIFIED";
+    state: GateState;
     detail: string;
   }>;
+  proposals?: ProposedAction[];
 }
 
 interface Window {
@@ -58,6 +148,13 @@ interface Window {
     getWorkspace: () => Promise<WorkspaceSnapshot | null>;
     selectWorkspace: () => Promise<WorkspaceSnapshot | null>;
     runTask: (prompt: string) => Promise<TaskEvidence>;
+    listTasks?: () => Promise<TaskEvidence[]>;
+    createProposal?: (input: ProposalInput) => Promise<ProposedAction>;
+    decideProposal?: (input: ApprovalDecisionInput) => Promise<ProposedAction>;
+    editProposal?: (
+      actionId: string,
+      edits: ProposalEditInput,
+    ) => Promise<ProposedAction>;
     onTaskStatus: (
       listener: (
         status:

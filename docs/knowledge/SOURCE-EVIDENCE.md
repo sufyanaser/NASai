@@ -17,6 +17,9 @@
 | GATE-002    | Stages 1–7 proposal, approval, checkpoint, command, ledger, and provider gates | `npm run verify`, exit code 0; 6 test files / 18 tests passed, including 10-step safe edit & rollback fixture cycle                 | Local automated evidence                            | 2026-10-11    |
 | HASH-004    | `0.2.0` Windows NSIS installer candidate identity                 | `release/NASai-Setup-0.2.0.exe`, SHA-256 `6AA36EAEE35FC6DBCD3F0FABC1E29F3626EB100DB4D4485F79603B2BA1AC64EA` plus `latest.yml`        | Direct artifact evidence                            | 2026-10-11    |
 | INSTALL-002 | Installed `0.2.0` Windows runtime and preload bridge verification | Silent installer exit 0; installed `0.2.0` restored `H:\Projects\NASai` (71 files, 4 rules) and completed 10-step cycle with `PASS` | Direct installed-runtime evidence                   | 2026-10-11    |
+| RELEASE-001 | GitHub Release `v0.2.0` with NSIS installer and updater metadata  | Published at `https://github.com/sufyanaser/NASai/releases/tag/v0.2.0` with `NASai-Setup-0.2.0.exe`, `.blockmap`, and `latest.yml`    | Live GitHub Release evidence                        | 2026-10-11    |
+| UPGRADE-001 | Real automatic upgrade on Windows from `0.1.0` to `0.2.0` (`PASS`) | Installed `0.1.0.0` detected and downloaded `0.2.0` (`state: downloaded`), upgraded binary to `0.2.0.0`, and preserved `workspace.json` (35B) & `tasks.json` (17804B) | Direct real-device upgrade evidence (`PASS`)        | 2026-10-11    |
 
 Append gate runs, artifact hashes, release URLs, installer checks, and upgrade checks as they occur.
+
 

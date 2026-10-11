@@ -78,7 +78,7 @@ export function registerUpdater(window: BrowserWindow): void {
   });
 
   ipcMain.handle("updater:install", () => {
-    if (app.isPackaged) autoUpdater.quitAndInstall(false, true);
+    if (app.isPackaged) autoUpdater.quitAndInstall(true, true);
   });
 
   if (app.isPackaged) {

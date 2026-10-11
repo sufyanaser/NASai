@@ -22,4 +22,4 @@
 
 `electron-updater` checks GitHub Releases only in packaged builds. It downloads an available update and installs on quit; the UI can request immediate restart/install after download.
 
-This is implementation evidence only. Until steps 6–8 run, installation and upgrade status remain `NOT VERIFIED`.
+This is implementation evidence only; each new release remains `NOT VERIFIED` until steps 6–8 run on a real Windows environment. For `v0.2.0`, real Windows installation (`RELEASE-001`) and automatic upgrade from `v0.1.0` to `v0.2.0` (`UPGRADE-001`) reached `PASS`.

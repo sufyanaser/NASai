@@ -1,0 +1,14 @@
+import { contextBridge, ipcRenderer } from "electron";
+import type { UpdateStatus } from "./updater.js";
+
+contextBridge.exposeInMainWorld("nasai", {
+  getAppInfo: () => ipcRenderer.invoke("app:get-info"),
+  checkForUpdates: () => ipcRenderer.invoke("updater:check"),
+  installUpdate: () => ipcRenderer.invoke("updater:install"),
+  onUpdateStatus: (listener: (status: UpdateStatus) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: UpdateStatus) =>
+      listener(status);
+    ipcRenderer.on("updater:status", handler);
+    return () => ipcRenderer.removeListener("updater:status", handler);
+  },
+});

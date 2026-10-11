@@ -40,6 +40,7 @@ The installer is written to `release/`. Building an installer does not prove ins
 
 - `electron/`: sandboxed Electron host, narrow preload bridge, update lifecycle.
 - `src/`: React AppShell and UI tests.
+- `assets/NASai.ico`: canonical application, window, installer, shortcut, and UI icon.
 - `docs/knowledge/`: operating charter and evidence-backed project rules.
 - `.github/workflows/`: pull-request quality gates and tag-based Windows release candidates.
 

@@ -54,6 +54,12 @@ button {
   color: #07110e;
   background: linear-gradient(135deg, #5ef1bc, #b7f9e2);
   box-shadow: 0 0 28px #49d8a644;
+  overflow: hidden;
+}
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 .brand-accent {
   color: #61e9b7;

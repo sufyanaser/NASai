@@ -12,6 +12,7 @@ function createWindow(): BrowserWindow {
     minWidth: 1080,
     minHeight: 700,
     backgroundColor: "#080b10",
+    icon: join(currentDirectory, "../assets/NASai.ico"),
     titleBarStyle: "hiddenInset",
     show: false,
     webPreferences: {

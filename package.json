@@ -59,9 +59,11 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
+      "assets/NASai.ico",
       "package.json"
     ],
     "win": {
+      "icon": "assets/NASai.ico",
       "target": [
         {
           "target": "nsis",
@@ -73,6 +75,9 @@
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {
+      "installerIcon": "assets/NASai.ico",
+      "uninstallerIcon": "assets/NASai.ico",
+      "installerHeaderIcon": "assets/NASai.ico",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,

@@ -37,7 +37,9 @@ export function App() {
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">N</span>
+          <span className="brand-mark">
+            <img src="/NASai.ico" alt="" />
+          </span>
           <span>
             NAS<span className="brand-accent">ai</span>
           </span>

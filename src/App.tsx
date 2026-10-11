@@ -38,7 +38,7 @@ export function App() {
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">
-            <img src="/NASai.ico" alt="" />
+            <img src="/brand/nasai-mark-mono.svg" alt="" />
           </span>
           <span>
             NAS<span className="brand-accent">ai</span>
@@ -93,13 +93,20 @@ export function App() {
 
         <div className="content-grid">
           <section className="hero-card">
-            <div className="hero-copy">
-              <span className="status-pill">READY TO START</span>
-              <h2>What should we build?</h2>
-              <p>
-                Describe a focused task. NASai will inspect the workspace, load
-                project rules, and ask before any sensitive action.
-              </p>
+            <div className="hero-intro">
+              <div className="hero-copy">
+                <span className="status-pill">NASAI IS READY</span>
+                <h2>What should we build?</h2>
+                <p>
+                  Describe a focused task. NASai will inspect the workspace,
+                  load project rules, and ask before any sensitive action.
+                </p>
+              </div>
+              <div className="mascot-stage" aria-hidden="true">
+                <span className="mascot-halo" />
+                <img src="/brand/nasai-mascot.png" alt="" />
+                <span className="mascot-status">Online</span>
+              </div>
             </div>
             <div className="prompt-box">
               <textarea

@@ -11,5 +11,7 @@
 | SEC-001   | Runtime dependency audit found no known vulnerabilities           | `npm audit --omit=dev`, 0 vulnerabilities                                                                           | Local registry audit evidence                       | 2026-10-11    |
 | BRAND-001 | Canonical application icon supplied by the owner                  | `assets/NASai.ico`, SHA-256 `03C1BAAFC9BD47F0532AFC1189E5CBC12D368D41885FD01C8572E6C1AB5EDF79`                      | User-provided source asset                          | 2026-10-11    |
 | HASH-002  | Branded installer candidate identity                              | SHA-256 `D0ED330A0BDD04443D92A3782BF765F58C84C1371C8391E51E2979E48CC8AA11`; embedded icon matches source pixel hash | Direct artifact evidence                            | 2026-10-11    |
+| BRAND-002 | Original NASai mascot and mono mark identity                      | Supplied screenshot and linked Dribbble shot used as mood references; generated mascot plus deterministic SVG mark  | Project visual assets                               | 2026-10-11    |
+| HASH-003  | Mascot-identity installer candidate                               | SHA-256 `98CB707CAFB36BBA1F38E8ED0AA94CE0A884DFF84F6A88D8297C39430D6F2447`                                          | Direct artifact evidence                            | 2026-10-11    |
 
 Append gate runs, artifact hashes, release URLs, installer checks, and upgrade checks as they occur.

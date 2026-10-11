@@ -52,14 +52,15 @@ button {
   height: 30px;
   border-radius: 9px;
   color: #07110e;
-  background: linear-gradient(135deg, #5ef1bc, #b7f9e2);
+  background: linear-gradient(135deg, #edfdf8, #baf8e1);
   box-shadow: 0 0 28px #49d8a644;
   overflow: hidden;
 }
 .brand-mark img {
-  width: 100%;
-  height: 100%;
+  width: 23px;
+  height: 23px;
   object-fit: contain;
+  color: #091510;
 }
 .brand-accent {
   color: #61e9b7;
@@ -229,6 +230,69 @@ h1 {
 .hero-card {
   padding: 34px;
   min-height: 430px;
+  overflow: hidden;
+  position: relative;
+}
+.hero-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 20px;
+  align-items: center;
+  min-height: 150px;
+}
+.mascot-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 172px;
+  isolation: isolate;
+}
+.mascot-stage img {
+  position: relative;
+  z-index: 2;
+  width: 164px;
+  height: 164px;
+  object-fit: contain;
+  filter: drop-shadow(0 20px 26px #03110e80);
+  animation: mascot-float 5s ease-in-out infinite;
+}
+.mascot-halo {
+  position: absolute;
+  z-index: 0;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    #48e2b743 0,
+    #48e2b70a 55%,
+    transparent 72%
+  );
+  filter: blur(4px);
+}
+.mascot-status {
+  position: absolute;
+  z-index: 3;
+  right: 4px;
+  bottom: 10px;
+  padding: 5px 8px;
+  border: 1px solid #2f594c;
+  border-radius: 999px;
+  color: #a3f5d8;
+  background: #0c1d18d9;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+@keyframes mascot-float {
+  0%,
+  100% {
+    transform: translateY(2px) rotate(-0.6deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(0.6deg);
+  }
 }
 .status-pill {
   display: inline-block;
@@ -487,5 +551,17 @@ footer {
   }
   .hero-card {
     padding: 28px;
+  }
+  .hero-intro {
+    grid-template-columns: minmax(0, 1fr) 150px;
+  }
+  .mascot-stage img {
+    width: 140px;
+    height: 140px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mascot-stage img {
+    animation: none;
   }
 }

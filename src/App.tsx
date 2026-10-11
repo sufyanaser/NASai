@@ -13,12 +13,6 @@ const navItems = [
   { label: "Knowledge", icon: "▤" },
 ];
 
-const checks = [
-  ["Workspace scope", "Ready"],
-  ["Project rules", "Loaded"],
-  ["Quality gates", "4 configured"],
-];
-
 type AgentState =
   "idle" | "thinking" | "working" | "verifying" | "success" | "attention";
 
@@ -38,8 +32,8 @@ const reactions: Record<
   },
   working: {
     image: "./brand/nasai-working.png",
-    label: "Building",
-    message: "I’m working through the task.",
+    label: "Inspecting",
+    message: "I’m inspecting the selected workspace.",
   },
   verifying: {
     image: "./brand/nasai-thinking.png",
@@ -67,9 +61,6 @@ const suggestionText: Record<string, string> = {
     "Plan the smallest testable version of this feature without scope creep.",
 };
 
-const wait = (duration: number) =>
-  new Promise((resolve) => setTimeout(resolve, duration));
-
 export function App() {
   const [update, setUpdate] = useState<UpdateStatus>({
     state: "idle",
@@ -79,37 +70,82 @@ export function App() {
   const [agentState, setAgentState] = useState<AgentState>("idle");
   const [task, setTask] = useState("");
   const [lastTask, setLastTask] = useState<string | null>(null);
-  const reaction = reactions[agentState];
+  const [workspace, setWorkspace] = useState<WorkspaceSnapshot | null>(null);
+  const [taskEvidence, setTaskEvidence] = useState<TaskEvidence | null>(null);
+  const reaction =
+    !workspace && agentState === "idle"
+      ? {
+          ...reactions.idle,
+          label: "Waiting",
+          message: "Choose a workspace to begin.",
+        }
+      : reactions[agentState];
   const isRunning = ["thinking", "working", "verifying"].includes(agentState);
 
   useEffect(() => {
     void window.nasai?.getAppInfo().then((info) => setVersion(info.version));
-    return window.nasai?.onUpdateStatus(setUpdate);
+    void window.nasai?.getWorkspace().then(setWorkspace);
+    const removeUpdateListener = window.nasai?.onUpdateStatus(setUpdate);
+    const removeTaskListener = window.nasai?.onTaskStatus(setAgentState);
+    return () => {
+      removeUpdateListener?.();
+      removeTaskListener?.();
+    };
   }, []);
 
   const checkUpdates = () => void window.nasai?.checkForUpdates();
 
   const runTask = async () => {
     if (!task.trim() || isRunning) return;
-    setAgentState("thinking");
-    await wait(950);
-    setAgentState("working");
-    await wait(1250);
-    setAgentState("verifying");
-    await wait(950);
-
-    if (/\b(error|fail|blocked)\b/i.test(task)) {
+    if (!window.nasai || !workspace) {
       setAgentState("attention");
       return;
     }
-
-    setLastTask(task.trim());
-    setAgentState("success");
+    try {
+      setAgentState("thinking");
+      const evidence = await window.nasai.runTask(task);
+      setTaskEvidence(evidence);
+      setLastTask(evidence.prompt);
+      setAgentState(evidence.status === "PASS" ? "success" : "attention");
+    } catch {
+      setAgentState("attention");
+    }
   };
+
+  const selectWorkspace = async () => {
+    const selected = await window.nasai?.selectWorkspace();
+    if (!selected) return;
+    setWorkspace(selected);
+    setAgentState("idle");
+    setTaskEvidence(null);
+    setLastTask(null);
+  };
+
+  const checks = workspace
+    ? [
+        ["Workspace scope", workspace.name],
+        [
+          "Project rules",
+          workspace.rules.length > 0
+            ? `${workspace.rules.length} loaded`
+            : "Not found",
+        ],
+        [
+          "Git state",
+          workspace.gitAvailable
+            ? `${workspace.branch ?? "detached"}${workspace.dirty ? " · changed" : " · clean"}`
+            : "Not detected",
+        ],
+      ]
+    : [
+        ["Workspace scope", "Choose a folder"],
+        ["Project rules", "Not inspected"],
+        ["Git state", "Not inspected"],
+      ];
 
   const acknowledgeMascot = () => {
     if (isRunning) return;
-    setAgentState(agentState === "idle" ? "success" : "idle");
+    if (agentState !== "idle") setAgentState("idle");
   };
 
   return (
@@ -118,7 +154,9 @@ export function App() {
         <div className="window-drag-region">
           <img src="./brand/nasai-mark-mono.svg" alt="" />
           <span>NASai</span>
-          <span className="window-context">Workspace</span>
+          <span className="window-context">
+            {workspace?.name ?? "Workspace"}
+          </span>
         </div>
         <div className="window-controls" aria-label="Window controls">
           <button
@@ -190,14 +228,22 @@ export function App() {
           <header className="topbar">
             <div>
               <span className="eyebrow">CURRENT WORKSPACE</span>
-              <h1>Build with evidence, not assumptions.</h1>
+              <h1>
+                {workspace
+                  ? `${workspace.name} · ${workspace.fileCount} files inspected`
+                  : "Choose a workspace to begin."}
+              </h1>
             </div>
             <div className="top-actions">
               <span className="connection">
                 <i /> Local
               </span>
-              <button className="ghost-button" type="button">
-                Settings
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => void selectWorkspace()}
+              >
+                {workspace ? "Change workspace" : "Open workspace"}
               </button>
             </div>
           </header>
@@ -209,10 +255,11 @@ export function App() {
                   <span className={`status-pill state-${agentState}`}>
                     {reaction.label}
                   </span>
-                  <h2>What should we build?</h2>
+                  <h2>What should we investigate?</h2>
                   <p>
-                    Describe a focused task. NASai will inspect the workspace,
-                    load project rules, and ask before any sensitive action.
+                    Describe a focused task. NASai will inspect the selected
+                    workspace, load project rules, and capture evidence without
+                    changing project files.
                   </p>
                 </div>
                 <button
@@ -246,12 +293,16 @@ export function App() {
                   >
                     ＋
                   </button>
-                  <span>Scope is limited to this workspace</span>
+                  <span className="workspace-scope">
+                    {workspace
+                      ? `Scope: ${workspace.path}`
+                      : "Choose a workspace before starting"}
+                  </span>
                   <button
                     className="run-button"
                     type="button"
                     onClick={() => void runTask()}
-                    disabled={!task.trim() || isRunning}
+                    disabled={!task.trim() || isRunning || !workspace}
                   >
                     {isRunning ? reaction.label : "Start task"}{" "}
                     <b>{isRunning ? "•••" : "↗"}</b>
@@ -277,12 +328,12 @@ export function App() {
                   <span className="eyebrow">PREFLIGHT</span>
                   <h3>Workspace readiness</h3>
                 </div>
-                <span className="score">3/3</span>
+                <span className="score">{workspace ? "3 checks" : "0/3"}</span>
               </div>
               <div className="checks">
                 {checks.map(([name, state]) => (
                   <div className="check" key={name}>
-                    <span className="checkmark">✓</span>
+                    <span className="checkmark">{workspace ? "✓" : "·"}</span>
                     <div>
                       <strong>{name}</strong>
                       <small>{state}</small>
@@ -311,11 +362,27 @@ export function App() {
                   </strong>
                   <p>
                     {lastTask
-                      ? "All configured checks passed. Evidence is ready for review."
+                      ? (taskEvidence?.summary ??
+                        "Evidence is ready for review.")
                       : "Each task keeps its decisions, commands, gate results, and evidence together."}
                   </p>
                 </div>
               </div>
+              {taskEvidence && (
+                <div className="evidence-list" aria-label="Task evidence">
+                  {taskEvidence.checks.map((check) => (
+                    <div key={check.label}>
+                      <span
+                        className={`evidence-state ${check.state.toLowerCase().replace(" ", "-")}`}
+                      >
+                        {check.state}
+                      </span>
+                      <strong>{check.label}</strong>
+                      <small>{check.detail}</small>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             <aside className="update-card">

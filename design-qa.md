@@ -53,3 +53,27 @@ The title bar and mascot region were inspected at their original 1440 × 900 imp
 - [x] Offline-safe typography fallback
 
 final result: passed
+
+Installed runtime evidence: `H:/Projects/NASai/installed-workspace-engine.png`. The packaged application restored the saved NASai workspace, displayed 63 inspected files, four loaded rules, and the live `develop · changed` Git state. The screenshot was captured from the installed `file://` renderer after the CommonJS preload fix.
+
+---
+
+## Workspace engine follow-up — 2026-10-11
+
+- Source visual truth: `H:/Projects/NASai/design-qa-ready-v2.png` (accepted NASai AppShell).
+- Implementation screenshot: `H:/Projects/NASai/design-qa-workspace-engine-v2.png`.
+- Combined comparison: `H:/Projects/NASai/design-qa-workspace-comparison.png`.
+- Viewport and density: 1440 × 900 CSS px and output pixels, device scale factor 1.
+- State: no workspace selected; primary task action intentionally disabled.
+- Full-view evidence: the accepted navigation, card grid, typography, colors, mascot fidelity, and title bar remain stable. New workspace selection and three-check preflight fit without overflow or hierarchy regression.
+- Focused evidence: the workspace headline, Open workspace command, Waiting mascot label, disabled task button, and 0/3 readiness panel are readable at original size. No separate crop was needed.
+- Interaction evidence: renderer tests cover restored workspace data, disabled empty state, successful evidence result, and runtime failure. The Node test exercises real filesystem discovery and verifies source files remain unchanged.
+- Console/runtime errors: none reported by the automated renderer and build checks.
+
+Comparison history:
+
+1. Initial workspace capture showed a P2 semantic inconsistency: the mascot said `Ready` while the task command was disabled because no workspace was selected.
+2. The empty state now says `Waiting` and directs the user to choose a workspace.
+3. The revised capture shows aligned status, copy, preflight count, and disabled action. No actionable P0/P1/P2 finding remains.
+
+final result: passed

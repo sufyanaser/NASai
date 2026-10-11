@@ -4,6 +4,7 @@ dist-electron/
 release/
 release-next/
 design-qa-ready.png
+design-qa-workspace-engine.png
 coverage/
 *.log
 *.tsbuildinfo

@@ -14,5 +14,9 @@
 | BRAND-002   | Original NASai mascot and mono mark identity                      | Supplied screenshot and linked Dribbble shot used as mood references; generated mascot plus deterministic SVG mark                  | Project visual assets                               | 2026-10-11    |
 | HASH-003    | Mascot-identity installer candidate                               | SHA-256 `98CB707CAFB36BBA1F38E8ED0AA94CE0A884DFF84F6A88D8297C39430D6F2447`                                                          | Direct artifact evidence                            | 2026-10-11    |
 | INSTALL-001 | Windows installer and packaged runtime                            | Silent installer exit 0; installed version `0.1.0`; responsive `NASai` window; packaged mascot and mono mark verified in `app.asar` | Direct installed-runtime evidence                   | 2026-10-11    |
+| GATE-002    | Stages 1–7 proposal, approval, checkpoint, command, ledger, and provider gates | `npm run verify`, exit code 0; 6 test files / 18 tests passed, including 10-step safe edit & rollback fixture cycle                 | Local automated evidence                            | 2026-10-11    |
+| HASH-004    | `0.2.0` Windows NSIS installer candidate identity                 | `release/NASai-Setup-0.2.0.exe`, SHA-256 `6AA36EAEE35FC6DBCD3F0FABC1E29F3626EB100DB4D4485F79603B2BA1AC64EA` plus `latest.yml`        | Direct artifact evidence                            | 2026-10-11    |
+| INSTALL-002 | Installed `0.2.0` Windows runtime and preload bridge verification | Silent installer exit 0; installed `0.2.0` restored `H:\Projects\NASai` (71 files, 4 rules) and completed 10-step cycle with `PASS` | Direct installed-runtime evidence                   | 2026-10-11    |
 
 Append gate runs, artifact hashes, release URLs, installer checks, and upgrade checks as they occur.
+

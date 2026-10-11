@@ -78,7 +78,7 @@ export function App() {
     state: "idle",
     message: "Updates ready",
   });
-  const [version, setVersion] = useState("0.1.0");
+  const [version, setVersion] = useState("0.2.0");
   const [agentState, setAgentState] = useState<AgentState>("idle");
   const [task, setTask] = useState("");
   const [lastTask, setLastTask] = useState<string | null>(null);

@@ -49,7 +49,11 @@ function checkpointsPath() {
 
 async function restoreWorkspace() {
   try {
-    const saved = JSON.parse(await fs.readFile(settingsPath(), "utf8")) as {
+    const raw = (await fs.readFile(settingsPath(), "utf8")).replace(
+      /^\uFEFF/,
+      "",
+    );
+    const saved = JSON.parse(raw) as {
       path?: string;
     };
     if (saved.path) selectedWorkspace = saved.path;
@@ -60,7 +64,11 @@ async function restoreWorkspace() {
 
 async function readTaskHistory(): Promise<TaskEvidence[]> {
   try {
-    return JSON.parse(await fs.readFile(tasksPath(), "utf8")) as TaskEvidence[];
+    const raw = (await fs.readFile(tasksPath(), "utf8")).replace(
+      /^\uFEFF/,
+      "",
+    );
+    return JSON.parse(raw) as TaskEvidence[];
   } catch {
     return [];
   }

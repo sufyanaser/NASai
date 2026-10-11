@@ -3,6 +3,7 @@ dist/
 dist-electron/
 release/
 release-next/
+release-*/
 design-qa-ready.png
 design-qa-workspace-engine.png
 coverage/

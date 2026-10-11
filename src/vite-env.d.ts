@@ -197,6 +197,13 @@ interface TaskEvidence {
   gitState?: GitStatusSnapshot;
 }
 
+interface ProviderStatus {
+  activeProviderId: string;
+  requiresApiKey: boolean;
+  hasConfiguredKey: boolean;
+  keySource: "env" | "safe_storage" | "none";
+}
+
 interface Window {
   nasai?: {
     getAppInfo: () => Promise<{
@@ -223,6 +230,9 @@ interface Window {
     rollbackLastCheckpoint?: () => Promise<TaskEvidence>;
     cancelCommand?: (actionId: string) => Promise<boolean>;
     runSafeEditFixtureCycle?: () => Promise<TaskEvidence>;
+    getProviderStatus?: () => Promise<ProviderStatus>;
+    setProviderKey?: (apiKey: string) => Promise<ProviderStatus>;
+    clearProviderKey?: () => Promise<ProviderStatus>;
     onTaskStatus: (
       listener: (
         status:

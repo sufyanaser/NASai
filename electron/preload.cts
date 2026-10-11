@@ -29,6 +29,10 @@ contextBridge.exposeInMainWorld("nasai", {
   cancelCommand: (actionId: string) =>
     ipcRenderer.invoke("command:cancel", actionId),
   runSafeEditFixtureCycle: () => ipcRenderer.invoke("cycle:run-fixture"),
+  getProviderStatus: () => ipcRenderer.invoke("provider:get-status"),
+  setProviderKey: (apiKey: string) =>
+    ipcRenderer.invoke("provider:set-key", apiKey),
+  clearProviderKey: () => ipcRenderer.invoke("provider:clear-key"),
   onTaskStatus: (listener: (status: string) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, status: string) =>
       listener(status);

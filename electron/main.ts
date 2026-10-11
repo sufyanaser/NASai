@@ -1,4 +1,12 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  safeStorage,
+  shell,
+} from "electron";
 import { promises as fs } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +21,7 @@ import {
   type ProposalInput,
   type ProposedAction,
 } from "./proposals.js";
+import { ProviderRegistry, SecretVault } from "./provider.js";
 import { registerUpdater } from "./updater.js";
 import {
   executeApprovedAction,
@@ -333,6 +342,24 @@ app.whenReady().then(async () => {
   ipcMain.handle("command:cancel", (_event, actionId: string) =>
     cancelActiveCommand(actionId),
   );
+  const vault = new SecretVault({
+    userDataDir: app.getPath("userData"),
+    safeStorage,
+  });
+  const providerRegistry = new ProviderRegistry(vault);
+
+  ipcMain.handle("provider:get-status", async () =>
+    providerRegistry.getStatus(),
+  );
+  ipcMain.handle("provider:set-key", async (_event, apiKey: string) => {
+    await vault.setApiKey(apiKey);
+    return providerRegistry.getStatus();
+  });
+  ipcMain.handle("provider:clear-key", async () => {
+    await vault.clearApiKey();
+    return providerRegistry.getStatus();
+  });
+
   ipcMain.handle("cycle:run-fixture", async (event): Promise<TaskEvidence> => {
     event.sender.send("task:status", "working");
     const report = await runRepresentativeSafeEditCycle();

@@ -568,169 +568,173 @@ export function App() {
 
           {activeTab === "Workspace" && (
             <div className="content-grid">
-              <section className="hero-card">
-                <div className="hero-intro">
-                  <div className="hero-copy">
-                    <span className={`status-pill state-${agentState}`}>
-                      {reaction.label}
-                    </span>
-                    <h2>What should we investigate?</h2>
-                    <p>
-                      Describe a focused task. NASai will inspect the selected
-                      workspace, load project rules, and capture evidence
-                      without changing project files.
-                    </p>
-                  </div>
-                  <button
-                    className={`mascot-stage state-${agentState}`}
-                    type="button"
-                    onClick={acknowledgeMascot}
-                    aria-label={`NASai status: ${reaction.label}. ${reaction.message}`}
-                  >
-                    <span className="mascot-halo" />
-                    <img key={reaction.image} src={reaction.image} alt="" />
-                    <span className="mascot-status">{reaction.label}</span>
-                    <span className="mascot-message">{reaction.message}</span>
-                  </button>
-                </div>
-                <div className="prompt-box">
-                  <textarea
-                    aria-label="Task description"
-                    placeholder="Example: Audit the update flow and fix only verified failures…"
-                    value={task}
-                    onChange={(event) => {
-                      setTask(event.target.value);
-                      if (!isRunning) setAgentState("idle");
-                    }}
-                    disabled={isRunning}
-                  />
-                  <div className="prompt-actions">
-                    <button
-                      className="attach"
-                      type="button"
-                      aria-label="Attach context"
-                    >
-                      ＋
-                    </button>
-                    <span className="workspace-scope">
-                      {workspace
-                        ? `Scope: ${workspace.path}`
-                        : "Choose a workspace before starting"}
-                    </span>
-                    <button
-                      className="run-button"
-                      type="button"
-                      onClick={() => void runTask()}
-                      disabled={!task.trim() || isRunning || !workspace}
-                    >
-                      {isRunning ? reaction.label : "Start task"}{" "}
-                      <b>{isRunning ? "•••" : "↗"}</b>
-                    </button>
-                  </div>
-                </div>
-                <div className="suggestions">
-                  {Object.keys(suggestionText).map((label) => (
-                    <button
-                      type="button"
-                      key={label}
-                      onClick={() => setTask(suggestionText[label])}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              <aside className="readiness-card">
-                <div className="card-heading">
-                  <div>
-                    <span className="eyebrow">PREFLIGHT</span>
-                    <h3>Workspace readiness</h3>
-                  </div>
-                  <span className="score">
-                    {workspace ? "3 checks" : "0/3"}
-                  </span>
-                </div>
-                <div className="checks">
-                  {checks.map(([name, state]) => (
-                    <div className="check" key={name}>
-                      <span className="checkmark">{workspace ? "✓" : "·"}</span>
-                      <div>
-                        <strong>{name}</strong>
-                        <small>{state}</small>
-                      </div>
+              <div className="content-main">
+                <section className="hero-card">
+                  <div className="hero-intro">
+                    <div className="hero-copy">
+                      <span className={`status-pill state-${agentState}`}>
+                        {reaction.label}
+                      </span>
+                      <h2>What should we investigate?</h2>
+                      <p>
+                        Describe a focused task. NASai will inspect the selected
+                        workspace, load project rules, and capture evidence
+                        without changing project files.
+                      </p>
                     </div>
-                  ))}
-                </div>
-                <button
-                  className="review-link"
-                  type="button"
-                  onClick={() => setActiveTab("Knowledge")}
-                >
-                  Review operating charter <span>→</span>
-                </button>
-              </aside>
+                    <button
+                      className={`mascot-stage state-${agentState}`}
+                      type="button"
+                      onClick={acknowledgeMascot}
+                      aria-label={`NASai status: ${reaction.label}. ${reaction.message}`}
+                    >
+                      <span className="mascot-halo" />
+                      <img key={reaction.image} src={reaction.image} alt="" />
+                      <span className="mascot-status">{reaction.label}</span>
+                      <span className="mascot-message">{reaction.message}</span>
+                    </button>
+                  </div>
+                  <div className="prompt-box">
+                    <textarea
+                      aria-label="Task description"
+                      placeholder="Example: Audit the update flow and fix only verified failures…"
+                      value={task}
+                      onChange={(event) => {
+                        setTask(event.target.value);
+                        if (!isRunning) setAgentState("idle");
+                      }}
+                      disabled={isRunning}
+                    />
+                    <div className="prompt-actions">
+                      <button
+                        className="attach"
+                        type="button"
+                        aria-label="Attach context"
+                      >
+                        ＋
+                      </button>
+                      <span className="workspace-scope">
+                        {workspace
+                          ? `Scope: ${workspace.path}`
+                          : "Choose a workspace before starting"}
+                      </span>
+                      <button
+                        className="run-button"
+                        type="button"
+                        onClick={() => void runTask()}
+                        disabled={!task.trim() || isRunning || !workspace}
+                      >
+                        {isRunning ? reaction.label : "Start task"}{" "}
+                        <b>{isRunning ? "•••" : "↗"}</b>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="suggestions">
+                    {Object.keys(suggestionText).map((label) => (
+                      <button
+                        type="button"
+                        key={label}
+                        onClick={() => setTask(suggestionText[label])}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </section>
 
-              <section className="activity-card">
-                <div className="card-heading">
-                  <div>
-                    <span className="eyebrow">RECENT ACTIVITY</span>
-                    <h3>{lastTask ? "Task verified" : "Nothing to recover"}</h3>
+                <section className="activity-card">
+                  <div className="card-heading">
+                    <div>
+                      <span className="eyebrow">RECENT ACTIVITY</span>
+                      <h3>{lastTask ? "Task verified" : "Nothing to recover"}</h3>
+                    </div>
+                    <span className="muted">Today</span>
                   </div>
-                  <span className="muted">Today</span>
-                </div>
-                <div className={`empty-state ${lastTask ? "has-task" : ""}`}>
-                  <span>◇</span>
-                  <div>
-                    <strong>
-                      {lastTask ?? "Your verified tasks will appear here"}
-                    </strong>
-                    <p>
-                      {lastTask
-                        ? (taskEvidence?.summary ??
-                          "Evidence is ready for review.")
-                        : "Each task keeps its decisions, commands, gate results, and evidence together."}
-                    </p>
+                  <div className={`empty-state ${lastTask ? "has-task" : ""}`}>
+                    <span>◇</span>
+                    <div>
+                      <strong>
+                        {lastTask ?? "Your verified tasks will appear here"}
+                      </strong>
+                      <p>
+                        {lastTask
+                          ? (taskEvidence?.summary ??
+                            "Evidence is ready for review.")
+                          : "Each task keeps its decisions, commands, gate results, and evidence together."}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                {taskEvidence && (
-                  <div className="evidence-list" aria-label="Task evidence">
-                    {taskEvidence.checks.map((check) => (
-                      <div key={check.label}>
-                        <span className={stateBadgeClass(check.state)}>
-                          {check.state}
-                        </span>
-                        <strong>{check.label}</strong>
-                        <small>{check.detail}</small>
+                  {taskEvidence && (
+                    <div className="evidence-list" aria-label="Task evidence">
+                      {taskEvidence.checks.map((check) => (
+                        <div key={check.label}>
+                          <span className={stateBadgeClass(check.state)}>
+                            {check.state}
+                          </span>
+                          <strong>{check.label}</strong>
+                          <small>{check.detail}</small>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {renderProposalsSection()}
+                </section>
+              </div>
+
+              <aside className="context-sidebar" aria-label="Context sidebar">
+                <div className="readiness-card">
+                  <div className="card-heading">
+                    <div>
+                      <span className="eyebrow">PREFLIGHT</span>
+                      <h3>Workspace readiness</h3>
+                    </div>
+                    <span className="score">
+                      {workspace ? "3 checks" : "0/3"}
+                    </span>
+                  </div>
+                  <div className="checks">
+                    {checks.map(([name, state]) => (
+                      <div className="check" key={name}>
+                        <span className="checkmark">{workspace ? "✓" : "·"}</span>
+                        <div>
+                          <strong>{name}</strong>
+                          <small>{state}</small>
+                        </div>
                       </div>
                     ))}
                   </div>
-                )}
-                {renderProposalsSection()}
-              </section>
-
-              <aside className="update-card">
-                <div>
-                  <span className={`update-orb ${update.state}`}>
-                    <i />
-                  </span>
-                  <div>
-                    <strong>NASai {version}</strong>
-                    <small>{update.message}</small>
-                  </div>
-                </div>
-                {update.state === "downloaded" ? (
                   <button
+                    className="review-link"
                     type="button"
-                    onClick={() => void window.nasai?.installUpdate()}
+                    onClick={() => setActiveTab("Knowledge")}
                   >
-                    Restart & install
+                    Review operating charter <span>→</span>
                   </button>
-                ) : (
-                  <button type="button" onClick={checkUpdates}>
-                    Check
-                  </button>
-                )}
+                </div>
+
+                <div className="update-card">
+                  <div>
+                    <span className={`update-orb ${update.state}`}>
+                      <i />
+                    </span>
+                    <div>
+                      <strong>NASai {version}</strong>
+                      <small>{update.message}</small>
+                    </div>
+                  </div>
+                  {update.state === "downloaded" ? (
+                    <button
+                      type="button"
+                      onClick={() => void window.nasai?.installUpdate()}
+                    >
+                      Restart & install
+                    </button>
+                  ) : (
+                    <button type="button" onClick={checkUpdates}>
+                      Check
+                    </button>
+                  )}
+                </div>
               </aside>
             </div>
           )}

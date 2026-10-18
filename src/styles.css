@@ -34,6 +34,8 @@ body {
   margin: 0;
   min-width: 1080px;
   min-height: 700px;
+  height: 100vh;
+  overflow: hidden;
   background:
     radial-gradient(circle at 62% 8%, #12211f 0, transparent 28%), #080b10;
 }
@@ -64,10 +66,14 @@ button {
   color: inherit;
 }
 .application-frame {
-  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--color-canvas);
 }
 .window-bar {
+  flex-shrink: 0;
   position: relative;
   z-index: 20;
   display: flex;
@@ -124,9 +130,11 @@ button {
   background: #d94a57;
 }
 .app-shell {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 236px 1fr;
-  min-height: calc(100vh - 42px);
+  overflow: hidden;
 }
 button:focus-visible,
 textarea:focus-visible {
@@ -148,6 +156,9 @@ button:disabled {
   cursor: not-allowed;
 }
 .sidebar {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -282,16 +293,20 @@ nav {
   letter-spacing: 1px;
 }
 .workspace {
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   min-width: 0;
   padding: 36px 48px 20px;
+  overflow: hidden;
 }
 .topbar {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 .eyebrow {
   color: #68717e;
@@ -334,12 +349,34 @@ h1 {
   cursor: pointer;
 }
 .content-grid {
+  flex: 1;
+  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(540px, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) 320px;
   gap: 18px;
   max-width: 1160px;
   width: 100%;
-  margin: auto;
+  margin: 0 auto;
+  align-items: stretch;
+}
+.content-main {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-right: 6px;
+}
+.context-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-self: start;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .hero-card,
 .readiness-card,
@@ -836,11 +873,12 @@ textarea::placeholder {
   border-color: #f07d87;
 }
 footer {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   max-width: 1160px;
   width: 100%;
-  margin: 22px auto 0;
+  margin: 16px auto 0;
   color: #4f5964;
   font-size: 9px;
   letter-spacing: 0.3px;
@@ -850,7 +888,7 @@ footer {
     padding-inline: 28px;
   }
   .content-grid {
-    grid-template-columns: minmax(500px, 1fr) 285px;
+    grid-template-columns: minmax(0, 1fr) 285px;
   }
   .hero-card {
     padding: 28px;
@@ -1068,9 +1106,14 @@ footer {
   background: var(--color-danger-soft);
 }
 .ledger-screen {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   max-width: 1160px;
   width: 100%;
-  margin: 0 auto auto;
+  margin: 0 auto;
+  padding-right: 6px;
 }
 .ledger-card {
   padding: 28px;

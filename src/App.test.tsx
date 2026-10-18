@@ -339,6 +339,30 @@ describe("App shell", () => {
       await screen.findByText("Restored src/math.mjs and verified SHA-256."),
     ).toBeVisible();
   });
+
+  it("structures stationary left and right sidebars with independent central content", async () => {
+    const { container } = render(<App />);
+    await screen.findByText("NASai · 42 files inspected");
+
+    const leftSidebar = container.querySelector(".sidebar");
+    expect(leftSidebar).toBeInTheDocument();
+
+    const centralContent = container.querySelector(".content-main");
+    expect(centralContent).toBeInTheDocument();
+    expect(centralContent?.querySelector(".hero-card")).toBeInTheDocument();
+    expect(centralContent?.querySelector(".activity-card")).toBeInTheDocument();
+
+    const rightSidebar = container.querySelector(".context-sidebar");
+    expect(rightSidebar).toBeInTheDocument();
+    expect(rightSidebar?.querySelector(".readiness-card")).toBeInTheDocument();
+    expect(rightSidebar?.querySelector(".update-card")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Tasks/ }));
+    expect(await screen.findByRole("region", { name: "Tasks view" })).toHaveClass("ledger-screen");
+
+    fireEvent.click(screen.getByRole("button", { name: /Evidence/ }));
+    expect(await screen.findByRole("region", { name: "Evidence view" })).toHaveClass("ledger-screen");
+  });
 });
 
 
